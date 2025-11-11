@@ -34,6 +34,7 @@ enum tx_frame_flag
     TX_MGMT_DEAUTH = 11,
     TX_MGMT_DISASSOC = 12,
     TX_MGMT_CSA_ACTION = 14,
+    TX_MGMT_DPP_STATUS = 15,
 };
 
 struct wifi_mac_pkt_info
@@ -133,7 +134,8 @@ struct wifi_mac_tx_info
         b_hwtkipmic:1,/* need hw tkip mic add*/
         b_amsdu:1,
         b_tcp_saved_flag:1,
-        b_pmf:1;
+        b_pmf:1,
+        b_dpp:1;
 } ;
 
 #define TX_DESC_BUF_LOCK_INIT(_sc) spin_lock_init(&(_sc)->tx_desc_buf_lock)

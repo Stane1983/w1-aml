@@ -378,6 +378,7 @@ struct wifi_mac_p2p
     unsigned int  raw_action_pkt_len;
     enum wifi_mac_tx_status_mode tx_status_flag;
     unsigned long long cookie;
+    struct wifi_channel *action_chan;
     struct channel_list peer_chan_list;
     struct channel_list self_chan_list;
     unsigned char peer_listen_channel;

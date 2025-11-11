@@ -489,6 +489,7 @@ struct wifi_mac
     enum wifi_mac_recovery_state recovery_stat;
     struct os_timer_ext wm_monitor_fw;
     spinlock_t fw_stat_lock;
+    unsigned char wm_wfa_enable;
 
 #if defined(SU_BF) || defined(MU_BF)
     int max_spatial;
@@ -751,6 +752,7 @@ struct wlan_net_vif
 #define WIFINET_F_WPA1 0x00800000
 #define WIFINET_F_WPA2 0x01000000
 #define WIFINET_F_WPA 0x01800000
+#define WIFINET_F_H2E 0x02000000
 #define WIFINET_F_COUNTERM 0x04000000
 #define WIFINET_F_HIDESSID 0x08000000
 #define WIFINET_F_HIDESSID_TO_BIT0_OFST 27
@@ -787,6 +789,9 @@ struct wlan_net_vif
 #define WIFINET_FEXT2_SWITCH_CHANNEL 0x80000000
 #define WIFINET_FEXT2_ALLOW_SWITCH_CHANNEL 0x01000000
 
+#define WIFINET_FEXT2_MGMT_RESTORE_CHANNEL           0x00000001
+#define WIFINET_FEXT2_DPP_SEND                       0x00000002
+#define WIFINET_FEXT2_DPP_CONNECTION_STATUS_RETRY    0x00000004
 
 #define WIFINET_FEXT2_PUREBGN (WIFINET_FEXT2_PUREB|WIFINET_FEXT2_PUREG|WIFINET_FEXT2_PUREN)
 #define WIFINET_FEXT2_PUREBG (WIFINET_FEXT2_PUREG|WIFINET_FEXT2_PUREB)

@@ -880,7 +880,7 @@ int drv_tx_start( struct drv_private *drv_priv, struct sk_buff *skbbuf)
             //if p2p ps frame, backup
             //if ps4quiet frame, backup; but if probereq, just send out
             if ((wnet_vif->vm_pstxqueue_flags & WIFINET_PSQUEUE_MASK) &&
-                !(((wnet_vif->vm_pstxqueue_flags & WIFINET_PSQUEUE_MASK) == WIFINET_PSQUEUE_PS4QUIET) && (WIFINET_IS_PROBEREQ(wh))))
+                !(((wnet_vif->vm_pstxqueue_flags & WIFINET_PSQUEUE_MASK) == WIFINET_PSQUEUE_PS4QUIET) && (WIFINET_IS_PROBEREQ(wh) || txinfo->b_dpp)))
             {
                 if (wnet_vif->vm_state != WIFINET_S_CONNECTED)
                 {
@@ -997,6 +997,13 @@ enum tx_frame_flag drv_set_tx_frame_flag(struct sk_buff *skbbuf)
         ret = TX_P2P_GAS;
     }
 #endif
+    if (p2p_pub_act
+        && (p2p_pub_act->category == AML_CATEGORY_PUBLIC)
+        && (p2p_pub_act->action == WIFINET_ACT_PUBLIC_P2P)) {
+        if (p2p_pub_act->oui_type == OUI_TYPE_DPP) {
+            ret = TX_MGMT_DPP_STATUS;
+        }
+    }
 
     if (WIFINET_IS_PROBEREQ(wh)) {
         ret = TX_MGMT_PROBE_REQ;
@@ -1238,6 +1245,7 @@ static void reset_connected_sta_keepalive_time(struct wifi_station *sta)
     sta->sta_inact_time = jiffies;
 }
 
+extern char dpp_pub_action_str[][50];
 static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_txdesc *ptxdesc,
     unsigned char status, struct wifi_station *sta)
 {
@@ -1245,7 +1253,10 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
     int txok = (status == TX_DESCRIPTOR_STATUS_SUCCESS);
     int mgmt_arg;
     static int deauth_fail_time = 0;
+    struct wifi_frame *wh = (struct wifi_frame *)ptxdesc->txdesc_ddraddr;
+    struct wifi_mac_p2p_pub_act_frame *p2p_pub_act = NULL;
 
+    p2p_pub_act = (struct wifi_mac_p2p_pub_act_frame *)((unsigned char *)wh + sizeof(struct wifi_frame));
     wnet_vif = sta->sta_wnet_vif;
 
     if ((ptxdesc->txdesc_frame_flag == TX_P2P_OTHER_GO_NEGO_FRAME)
@@ -1304,6 +1315,55 @@ static void drv_tx_complete_mgmt_handle(struct drv_private *drv_priv,struct drv_
 
     } else if (ptxdesc->txdesc_frame_flag == TX_MGMT_ADDBA_RSP) {
         ;
+    }
+
+    if (p2p_pub_act && (p2p_pub_act->category == AML_CATEGORY_PUBLIC)) {
+        if (p2p_pub_act->action == WIFINET_ACT_PUBLIC_P2P && p2p_pub_act->oui_type == OUI_TYPE_DPP) {
+            unsigned char dpp_action_subtype = *((char*)wh + sizeof(struct wifi_frame) + 7);
+
+            if (dpp_action_subtype < 19) {
+                AML_OUTPUT("DPP->%s, tx_status:%d, vm_flags_ext2:0x%x, %d\n", dpp_pub_action_str[dpp_action_subtype], status, wnet_vif->vm_flags_ext2, sizeof(dpp_pub_action_str[0]));
+            } else {
+                AML_OUTPUT("subtype:%d\n", dpp_action_subtype);
+            }
+
+            if (txok) {
+                sta->sta_wnet_vif->vm_p2p->send_tx_status_flag = 1;
+                sta->sta_wnet_vif->vm_wmac->wm_p2p_connection_protect = 0;
+                cfg80211_mgmt_tx_status(sta->sta_wnet_vif->vm_wdev, sta->sta_wnet_vif->vm_p2p->cookie,
+                    sta->sta_wnet_vif->vm_p2p->raw_action_pkt, sta->sta_wnet_vif->vm_p2p->raw_action_pkt_len, txok, GFP_KERNEL);
+                if (wnet_vif->vm_flags_ext2 & WIFINET_FEXT2_DPP_CONNECTION_STATUS_RETRY) {
+                    wnet_vif->vm_flags_ext2 &= ~WIFINET_FEXT2_DPP_CONNECTION_STATUS_RETRY;
+                }
+            } else {
+                if (dpp_action_subtype == 12) {
+                    AML_OUTPUT("retry dpp connection status frame\n");
+                    wnet_vif->vm_flags_ext2 |= WIFINET_FEXT2_DPP_CONNECTION_STATUS_RETRY;
+                    os_timer_ex_start_period(&sta->sta_wnet_vif->vm_actsend, 1000);
+                } else {
+                    sta->sta_wnet_vif->vm_p2p->send_tx_status_flag = 1;
+                    sta->sta_wnet_vif->vm_wmac->wm_p2p_connection_protect = 0;
+                    cfg80211_mgmt_tx_status(sta->sta_wnet_vif->vm_wdev, sta->sta_wnet_vif->vm_p2p->cookie,
+                        sta->sta_wnet_vif->vm_p2p->raw_action_pkt, sta->sta_wnet_vif->vm_p2p->raw_action_pkt_len, WIFINET_TX_STATUS_FAIL, GFP_KERNEL);
+                }
+            }
+            wnet_vif->vm_flags_ext2 &= ~WIFINET_FEXT2_DPP_SEND;
+            if (wnet_vif->vm_flags_ext2 & WIFINET_FEXT2_MGMT_RESTORE_CHANNEL) {
+                AML_OUTPUT("dpp frame restore chan\n");
+                wnet_vif->vm_flags_ext2 &= ~WIFINET_FEXT2_MGMT_RESTORE_CHANNEL;
+                wifi_mac_restore_wnet_vif_channel_task(wnet_vif);
+            }
+        } else if (((p2p_pub_act->action == WIFINET_ACT_PUBLIC_GAS_REQ) || (p2p_pub_act->action == WIFINET_ACT_PUBLIC_GAS_RSP))) {
+            sta->sta_wnet_vif->vm_p2p->send_tx_status_flag = 1;
+            cfg80211_mgmt_tx_status(sta->sta_wnet_vif->vm_wdev, sta->sta_wnet_vif->vm_p2p->cookie,
+                sta->sta_wnet_vif->vm_p2p->raw_action_pkt, sta->sta_wnet_vif->vm_p2p->raw_action_pkt_len, txok, GFP_KERNEL);
+            wnet_vif->vm_flags_ext2 &= ~WIFINET_FEXT2_DPP_SEND;
+            if (wnet_vif->vm_flags_ext2 & WIFINET_FEXT2_MGMT_RESTORE_CHANNEL) {
+                AML_OUTPUT("gas frame restore chan\n");
+                wnet_vif->vm_flags_ext2 &= ~WIFINET_FEXT2_MGMT_RESTORE_CHANNEL;
+                wifi_mac_restore_wnet_vif_channel_task(wnet_vif);
+            }
+        }
     }
 
     if (ptxdesc->txdesc_frame_flag == TX_MGMT_DEAUTH && txok
@@ -2437,7 +2497,7 @@ drv_tx_normal(struct drv_private *drv_priv, struct drv_txlist *txlist, struct li
     ptxdesc = list_first_entry(txdesc_list_head, struct drv_txdesc, txdesc_queue);
     wh = (struct wifi_frame *)os_skb_data(ptxdesc->txdesc_mpdu);
 
-    if (!drv_priv->is_mother_channel[vid] && !WIFINET_IS_PROBEREQ(wh)) {
+    if (!drv_priv->is_mother_channel[vid] && !WIFINET_IS_PROBEREQ(wh) && (!ptxdesc->txinfo->b_dpp)) {
         pr_debug("%s vid:%d not mother channel, buffer\n", __func__, vid);
 
         DRV_TX_NORMAL_BUF_LOCK(drv_priv);

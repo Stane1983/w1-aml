@@ -257,6 +257,7 @@ struct country_na_freq_set
 #define WIFINET_IS_CHAN_11N_HT40(_c) \
         ((!WIFINET_IS_CHAN_ERR(_c)) && (((_c)->chan_bw == WIFINET_BWC_WIDTH40)))
 
+#define WIFINET_RSNXE_SIZE 3
 #define WIFINET_RATE_SIZE	8
 #define WIFINET_RATE_MAXSIZE	57
 #define WIFINET_HT_RATE_SIZE	77
@@ -656,7 +657,21 @@ enum wifi_mac_status_code {
     WIFINET_STATUS_REFUSED = 37,
     WIFINET_STATUS_INVALID_PARAM = 38,
     WIFINET_STATUS_INVALID_PMKID = 53,
+    WIFINET_STATUS_ANTI_TOKEN_REQUESTED = 76,
+    WIFINET_STATUS_SAE_H2E = 126, //0x7e
 
+};
+
+
+enum wifi_mac_sae_message_type {
+    WIFINET_SAE_COMMIT = 0x1,
+    WIFINET_SAE_CONFIRM = 0x2,
+};
+
+enum wifi_mac_h2e_status {
+    WIFINET_H2E_NONE,
+    WIFINET_H2E_PEER_SUPPOR,
+    WIFINET_H2E_VALID,
 };
 
 #define WIFINET_COUNTRY_MAX_TRIPLETS (83)

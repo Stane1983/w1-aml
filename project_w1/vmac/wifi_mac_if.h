@@ -386,4 +386,5 @@ int wifi_mac_connect_repair(struct wifi_mac *wifimac);
 void wifi_mac_tx_lock_timer_attach(void);
 void wifi_mac_tx_lock_timer_cancel(void);
 
+unsigned char wifi_mac_is_dpp_frame(struct sk_buff *skb, struct wifi_station *sta);
 #endif

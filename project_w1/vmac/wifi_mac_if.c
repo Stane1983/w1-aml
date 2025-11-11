@@ -739,6 +739,10 @@ int wifi_mac_tx_mgmt_frm(struct wifi_mac *wifimac, struct sk_buff *skbbuf)
     wh = (struct wifi_frame *)os_skb_data(skbbuf);
     is_robust_mgmt = is_robust_management_frame(wh);
 
+    if (wifi_mac_is_dpp_frame(skbbuf, sta) == true) {
+        txinfo->b_dpp = 1;
+    }
+
     if ((sta->sta_flags_ext & WIFINET_NODE_MFP) && is_robust_mgmt && sta->pmf_key.wk_keylen) {
         if (WIFINET_IS_MULTICAST(wh->i_addr1)) {
             if (sta->pmf_key.wk_key_type == WIFINET_CIPHER_AES_CMAC) {
@@ -2606,10 +2610,40 @@ static void wifi_mac_tx_act_timeout_ex (SYS_TYPE param1,
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param1;
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
+    struct wifi_mac_p2p *p2p = wnet_vif->vm_p2p;
+
     pr_debug("%s vid:%d, act_pkt_retry_count:%d, token:%d\n",
-        __func__, wnet_vif->wnet_vif_id, wnet_vif->vm_p2p->act_pkt_retry_count, wnet_vif->vm_p2p->action_dialog_token);
+        __func__, wnet_vif->wnet_vif_id, wnet_vif->vm_p2p->act_pkt_retry_count,
+        wnet_vif->vm_p2p->action_dialog_token);
 
     if (wnet_vif->vm_p2p->tx_status_flag == WIFINET_TX_STATUS_SUCC) {
+        return;
+    }
+
+    if ((wnet_vif->vm_flags_ext2 & WIFINET_FEXT2_DPP_CONNECTION_STATUS_RETRY)) {
+        if (wnet_vif->vm_p2p->act_pkt_retry_count < 10) {
+            int delay = 0;
+
+            if (p2p->action_chan && (wifimac->wm_curchan != p2p->action_chan)) {
+                if (wifi_mac_is_wm_running(wifimac) == true) {
+                    wifi_mac_scan_notify_leave_or_back(wnet_vif, 1);
+                    while ((!wifimac->drv_priv->hal_priv->hal_ops.hal_tx_empty()) && delay < 500) {
+                       msleep(10);
+                       delay += 10;
+                    }
+                    wnet_vif->vm_flags_ext2 |= WIFINET_FEXT2_MGMT_RESTORE_CHANNEL;
+                }
+                wifi_mac_ChangeChannel(wifimac, p2p->action_chan, 0, wnet_vif->wnet_vif_id, wnet_vif->vm_opmode);
+            }
+            wnet_vif->vm_p2p->act_pkt_retry_count++;
+            AML_OUTPUT("dpp status retry pri_chan:%d delay:%d flag:%x retry_cnt:%d\n", wifimac->wm_curchan->chan_pri_num,
+                delay, wnet_vif->vm_flags_ext2, wnet_vif->vm_p2p->act_pkt_retry_count);
+            //need a lock
+            vm_cfg80211_send_mgmt(wnet_vif, wnet_vif->vm_p2p->action_pkt, wnet_vif->vm_p2p->action_pkt_len);
+        } else {
+            AML_OUTPUT("dpp connection send fail\n");
+            wnet_vif->vm_flags_ext2 &= ~WIFINET_FEXT2_DPP_CONNECTION_STATUS_RETRY;
+        }
         return;
     }
 
@@ -2729,7 +2763,7 @@ static int wifi_mac_act_tx_timeout(void* arg)
     struct wifi_station *sta = NULL;
     struct wifi_station *sta_next = NULL;
 
-    if (wnet_vif->vm_p2p_support == 1) {
+    if (wnet_vif->vm_p2p_support == 1 || (wnet_vif->vm_flags_ext2 & WIFINET_FEXT2_DPP_CONNECTION_STATUS_RETRY)) {
         WIFINET_DPRINTF(AML_DEBUG_WARNING,"vm_state %s", wifi_mac_state_name[wnet_vif->vm_state]);
         wifi_mac_add_work_task(wnet_vif->vm_wmac,wifi_mac_tx_act_timeout_ex, NULL,(SYS_TYPE)arg,0,0,0, 0);
     }
@@ -4512,3 +4546,40 @@ static unsigned char is_in_recovery(struct wifi_mac *wifimac)
     return 0;
 }
 
+extern char dpp_pub_action_str[][50];
+unsigned char wifi_mac_is_dpp_frame(struct sk_buff *skb, struct wifi_station *sta)
+{
+    struct wifi_mac_p2p_pub_act_frame *p2p_pub_act = NULL;
+    unsigned char *buf = (unsigned char *)os_skb_data(skb);
+    bool is_dpp_frame = false;
+
+    p2p_pub_act = (struct wifi_mac_p2p_pub_act_frame *)(buf + sizeof(struct wifi_frame));
+
+    if (p2p_pub_act
+        && (p2p_pub_act->category == AML_CATEGORY_PUBLIC)
+        && (p2p_pub_act->action == WIFINET_ACT_PUBLIC_P2P)) {
+        if (p2p_pub_act->oui_type == OUI_TYPE_DPP) {
+            unsigned char dpp_action_subtype = *(buf + sizeof(struct wifi_frame) + 7);
+            if (dpp_action_subtype == 11) {
+                concurrent_channel_protection(sta->sta_wnet_vif, 2000);
+            }
+
+            if (dpp_action_subtype < 19) {
+                AML_OUTPUT("DPP->%s %d\n", dpp_pub_action_str[dpp_action_subtype], dpp_action_subtype);
+            } else {
+                AML_OUTPUT("subtype:%d\n", dpp_action_subtype);
+            }
+            is_dpp_frame = true;
+        }
+    }
+
+    if (p2p_pub_act
+        && (p2p_pub_act->category == AML_CATEGORY_PUBLIC)
+        && ((p2p_pub_act->action == WIFINET_ACT_PUBLIC_GAS_REQ)
+             || (p2p_pub_act->action == WIFINET_ACT_PUBLIC_GAS_RSP))) {
+        AML_OUTPUT("gas frame action:%d\n", p2p_pub_act->action);
+        is_dpp_frame = true;
+    }
+
+    return is_dpp_frame;
+}

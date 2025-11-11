@@ -187,6 +187,8 @@ struct wifi_station
     unsigned short sta_flags;
     unsigned short sta_flags_ext;
 
+    unsigned char *sta_assoc_req;
+    unsigned int sta_assoc_req_ielen;
     unsigned short sta_associd;
     unsigned char sta_txpower;
     unsigned short sta_vlan;
@@ -231,6 +233,8 @@ struct wifi_station
     unsigned char sta_uapsd_ac_delivena[WME_NUM_AC];
 
     unsigned char *sta_rsn_ie;
+    unsigned char *sta_rsnxe_ie;
+    unsigned char sta_use_h2e;
     struct wifi_mac_Rsnparms sta_rsn;
     struct wifi_mac_key sta_ucastkey;
     struct wifi_mac_key pmf_key;

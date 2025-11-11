@@ -546,6 +546,13 @@ static unsigned char aml_iwpriv_set_mac_mode(unsigned int set)
     return 0;
 }
 
+void aml_iwpriv_set_wfa_mode(struct wlan_net_vif *wnet_vif, unsigned char is_enable)
+{
+    struct wifi_mac * wifimac = wnet_vif->vm_wmac;
+    wifimac->wm_wfa_enable = is_enable;
+    AML_OUTPUT("vid:%d, enable_wfa:%d\n", wnet_vif->wnet_vif_id, wifimac->wm_wfa_enable);
+}
+
 static int aml_iwpriv_send_para1(struct net_device *dev,
     struct iw_request_info *info, union iwreq_data *wrqu, char *extra)
 {
@@ -825,6 +832,9 @@ static int aml_iwpriv_send_para1(struct net_device *dev,
 
         case AML_IWP_SET_MAC_MODE:
             aml_iwpriv_set_mac_mode(set);
+            break;
+        case AML_IWP_SET_WFA_MODE:
+            aml_iwpriv_set_wfa_mode(wnet_vif, set);
             break;
     }
 
@@ -1844,6 +1854,9 @@ static const struct iw_priv_args aml_iwpriv_private_args[] = {
     AML_IWP_SET_MAC_MODE,
     IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_mac_mode"},
 
+{
+    AML_IWP_SET_WFA_MODE,
+    IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, 0, "set_wfa"},
 
 /*iwpriv get command*/
 {

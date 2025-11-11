@@ -1672,7 +1672,7 @@ int wifi_mac_pwrsave_wow_usr(struct wlan_net_vif *wnet_vif,
     return 0;
 }
 
-int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
+void wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5)
 {
@@ -1688,7 +1688,7 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
     if (wifimac->wm_suspend_mode == WIFI_SUSPEND_STATE_WOW)
     {
         WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
-        return 0;
+        return;
     }
 
     DPRINTF(AML_DEBUG_PWR_SAVE, "<%s>:%s %d scan abort when host suspend \n",
@@ -1705,7 +1705,7 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
                 wnet_vif->vm_ndev->name);
             wnet_vif->vm_scan_hang = 0;
             WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
-            return -1;
+            return;
         }
     }
 
@@ -1724,7 +1724,7 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
          */
         wnet_vif->vm_scan_hang = 0;
         WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
-        return -EINVAL;
+        return;
         #endif
     }
 
@@ -1773,7 +1773,7 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
         if (wnet_vif->wnet_vif_id == 1)
         {
             WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
-            return 0;
+            return;
         }
         wifimac->drv_priv->drv_ops.drv_set_suspend(wifimac->drv_priv, wnet_vif->wnet_vif_id, ENABLE,
             WIFI_SUSPEND_STATE_WOW, filter);
@@ -1786,10 +1786,10 @@ int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
     wifimac->wm_suspend_mode = WIFI_SUSPEND_STATE_WOW;
 
     WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
-    return 0;
+    return;
 }
 
-int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
+void wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5)
 {
@@ -1804,7 +1804,7 @@ int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
     if (wifimac->wm_suspend_mode == WIFI_SUSPEND_STATE_NONE)
     {
         WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
-        return 0;
+        return;
     }
 
     list_for_each_entry_safe(wnet_vif_tmp, wnet_vif_next, &wifimac->wm_wnet_vifs, vm_next)
@@ -1847,7 +1847,7 @@ int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
             WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
             wnet_vif->vm_scan_hang = 0;
             netif_wake_queue(wnet_vif->vm_ndev);
-            return 0;
+            return ;
         }
         wifimac->drv_priv->drv_ops.drv_set_suspend(wifimac->drv_priv, wnet_vif->wnet_vif_id, DISABLE,
             WIFI_SUSPEND_STATE_NONE, 0);
@@ -1863,7 +1863,7 @@ int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
     WIFINET_PWRSAVE_MUTEX_UNLOCK(wnet_vif);
     wnet_vif->vm_scan_hang = 0;
     netif_wake_queue(wnet_vif->vm_ndev);
-    return 0;
+    return ;
 }
 
 int wifi_mac_pwrsave_wow_check(struct wlan_net_vif *wnet_vif)

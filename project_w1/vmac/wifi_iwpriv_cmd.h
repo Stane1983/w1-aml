@@ -80,6 +80,8 @@ enum aml_iwpriv_subcmd
     AML_IWP_GET_BT_MAC = 72,
     AML_IWP_SET_TXPW_PLAN = 73,
     AML_IWP_SET_MAC_MODE = 74,
+    AML_IWP_SET_WOW_TCPPORT = 75,
+    AML_IWP_SET_WFA_MODE = 76,
 };
 
 extern unsigned char aml_iwpriv_get_band(void);

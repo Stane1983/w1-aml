@@ -58,6 +58,7 @@ struct sk_buff *wifi_mac_encap(struct wifi_station *, struct sk_buff *);
 unsigned char *wifi_mac_add_rates(unsigned char *, const struct wifi_mac_rateset *);
 unsigned char *wifi_mac_add_xrates(unsigned char *, const struct wifi_mac_rateset *);
 unsigned char *wifi_mac_add_wpa(unsigned char *, struct wlan_net_vif *);
+unsigned char *wifi_mac_add_rsnxe(unsigned char *, struct wlan_net_vif *);
 unsigned char *wifi_mac_add_erp(unsigned char *, struct wifi_mac *);
 unsigned char *wifi_mac_add_wme_param(unsigned char *, struct wifi_mac_wme_state *, int uapsd_enable);
 unsigned char *wifi_mac_add_country(unsigned char *, struct wifi_mac *);

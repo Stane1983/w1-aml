@@ -234,10 +234,10 @@ void wifi_mac_pwrsave_chk_uapsd_trig(void* ieee,  struct sk_buff * skbbuf, void 
 void wifi_mac_pwrsave_eosp_indicate(void* nsta,  struct sk_buff * skbbuf, int txok);
 void wifi_mac_pwrsave_send_pspoll(struct wifi_station *);
 
-int wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
+void wifi_mac_pwrsave_wow_suspend(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5);
-int wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
+void wifi_mac_pwrsave_wow_resume(SYS_TYPE param1,
                                 SYS_TYPE param2,SYS_TYPE param3,
                                 SYS_TYPE param4,SYS_TYPE param5);
 int wifi_mac_pwrsave_wow_usr(struct wlan_net_vif *wnet_vif,

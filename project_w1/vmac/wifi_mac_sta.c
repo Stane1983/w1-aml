@@ -357,10 +357,12 @@ int wifi_mac_connect(struct wlan_net_vif *wnet_vif, struct wifi_scan_info *se)
 
 #ifdef AML_WPA3
     if (wnet_vif->vm_mainsta->sta_flags_ext & WIFINET_NODE_MFP) {
-        pr_debug("ap pmf:%04x, before set rsn_caps:%04x ", se->si_rsn_capa, wnet_vif->vm_opt_ie[sta->sta_rsn.rsn_caps_offset]);
-        wnet_vif->vm_opt_ie[sta->sta_rsn.rsn_caps_offset] |= (unsigned char)(se->si_rsn_capa & 0xc0);
+        if (!wifimac->wm_wfa_enable) {
+            pr_debug("ap pmf:%04x, before set rsn_caps:%04x ", se->si_rsn_capa, wnet_vif->vm_opt_ie[sta->sta_rsn.rsn_caps_offset]);
+            wnet_vif->vm_opt_ie[sta->sta_rsn.rsn_caps_offset] |= (unsigned char)(se->si_rsn_capa & 0xc0);
+            pr_debug("after set rsn_caps:%04x\n", wnet_vif->vm_opt_ie[sta->sta_rsn.rsn_caps_offset]);
+        }
 
-        pr_debug("after set rsn_caps:%04x\n", wnet_vif->vm_opt_ie[sta->sta_rsn.rsn_caps_offset]);
         if ((se->si_rsn_capa & 0xc0) != 0) {
             sta->sta_flags_ext = (wnet_vif->vm_mainsta->sta_flags_ext & WIFINET_NODE_MFP);
             if (sta->sta_flags_ext & WIFINET_NODE_MFP) {
@@ -422,6 +424,13 @@ int wifi_mac_connect(struct wlan_net_vif *wnet_vif, struct wifi_scan_info *se)
     if ((se->SI_wps_ie[1]!=0))
     {
         wifi_mac_saveie(&sta->sta_wps_ie, se->SI_wps_ie, "sta->sta_wps_ie");
+    }
+    if (se->SI_rsnx_ie[1] != 0 && (sta->sta_use_h2e == WIFINET_H2E_NONE))
+    {
+        if ((se->SI_rsnx_ie[2] & BIT(5))) {
+            sta->sta_use_h2e = WIFINET_H2E_PEER_SUPPOR;
+            AML_OUTPUT("connect ap support H2E\n");
+        }
     }
 
     wifi_mac_reset_vmac(wnet_vif);
@@ -1407,7 +1416,7 @@ static void wifi_mac_sta_table_rst(struct wifi_station_tbl *nt, struct wlan_net_
         if ((match != NULL) && (wnet_vif != match))
             continue;
 
-        if (sta->sta_associd != 0) {
+        if ((wnet_vif->vm_opmode == WIFINET_M_HOSTAP) && (sta->sta_associd != 0)) {
             vm_StaClearAid(wnet_vif, sta->sta_associd);
         }
 
@@ -1429,7 +1438,7 @@ static void wifi_mac_clear_sta_table(struct wifi_station_tbl *nt)
 
     WIFINET_NODE_LOCK(nt);
     list_for_each_entry_safe(sta, next, &nt->nt_nsta, sta_list) {
-        if (sta->sta_associd != 0) {
+        if ((sta->sta_wnet_vif->vm_opmode == WIFINET_M_HOSTAP) && (sta->sta_associd != 0)) {
             vm_StaClearAid(sta->sta_wnet_vif, sta->sta_associd);
         }
 

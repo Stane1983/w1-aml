@@ -1173,8 +1173,10 @@ static void wifi_mac_auth_sae(struct wifi_station *sta, struct sk_buff *skb,
     unsigned short seq, struct wifi_frame *wh, unsigned short status, unsigned int channel)
 {
     struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
+    unsigned char *frm = (unsigned char *)&wh[1];
+    unsigned int msg_type = le16toh(*(unsigned short *)(frm + 2));
 
-    pr_debug("%s WIFINET_AUTH_ALG_SAE\n", __func__);
+    pr_debug("%s WIFINET_AUTH_ALG_SAE status:%d\n", __func__, status);
 
     switch (wnet_vif->vm_opmode) {
         case WIFINET_M_HOSTAP:
@@ -1189,6 +1191,13 @@ static void wifi_mac_auth_sae(struct wifi_station *sta, struct sk_buff *skb,
                     return;
 
             }
+
+            if ((wnet_vif->vm_flags & WIFINET_F_H2E) && (wnet_vif->vm_flags & WIFINET_F_WPA)
+                 && (status == WIFINET_STATUS_SAE_H2E)) {
+                 sta->sta_use_h2e = WIFINET_H2E_VALID;
+                 AML_OUTPUT("sta:%x support h2e\n", sta);
+             }
+
             sta->sta_flags |= WIFINET_NODE_AREF;
             memcpy(sta->sta_essid, wnet_vif->vm_mainsta->sta_essid, wnet_vif->vm_mainsta->sta_esslen);
             sta->sta_authmode = WIFINET_AUTH_SAE;
@@ -1202,7 +1211,14 @@ static void wifi_mac_auth_sae(struct wifi_station *sta, struct sk_buff *skb,
             }
 
             if (status != 0) {
-                WIFINET_DPRINTF_STA(AML_DEBUG_WARNING, sta, "sae auth failed (reason %d)", status);
+                if (sta->sta_use_h2e == WIFINET_H2E_VALID && (status == WIFINET_STATUS_SAE_H2E)
+                 && (msg_type == WIFINET_SAE_COMMIT)) {
+                 //h2e status notify uplyer
+                } else if ((status == WIFINET_STATUS_ANTI_TOKEN_REQUESTED) && (msg_type == WIFINET_SAE_COMMIT)) {
+                 //Anti-Token-Requested
+                } else {
+                    WIFINET_DPRINTF_STA(AML_DEBUG_WARNING, sta, "sae auth failed (reason %d)", status);
+                }
             }
 
             vm_cfg80211_notify_mgmt_rx(wnet_vif, channel, os_skb_data(skb),os_skb_get_pktlen(skb));
@@ -3863,6 +3879,9 @@ void wifi_mac_recv_assoc_req(struct wlan_net_vif *wnet_vif,
         frm += 2;
         if (reassoc)
             frm += 6;
+
+        sta->sta_assoc_req = frm;
+        sta->sta_assoc_req_ielen = efrm - frm;
 
         rsnie = NULL;
         /*frm[1] is length field */

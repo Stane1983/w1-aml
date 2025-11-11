@@ -1627,6 +1627,19 @@ wifi_mac_setup_rsn_ie(struct wlan_net_vif *wnet_vif, unsigned char *ie)
 }
 
 unsigned char *
+wifi_mac_add_rsnxe(unsigned char *frm, struct wlan_net_vif *wnet_vif)
+{
+
+    KASSERT((wnet_vif->vm_flags & WIFINET_F_WPA)
+        && (wnet_vif->vm_flags & WIFINET_F_H2E), ("no WPA/RSNXE!"));
+    *frm++ = WIFINET_ELEMID_RSNX;
+    *frm++ = 0x1;//len
+    *frm++ = 0x20;//h2e
+
+    return frm;
+}
+
+unsigned char *
 wifi_mac_add_wpa(unsigned char *frm, struct wlan_net_vif *wnet_vif)
 {
 
@@ -2445,7 +2458,8 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
 #endif//#ifdef CONFIG_P2P
         + sizeof(struct wifi_mac_ie_htcap) + sizeof(struct wifi_mac_ie_htinfo) + sizeof (struct wifi_mac_ie_obss_scan)
         + sizeof (struct wifi_mac_ie_ext_cap) + WIFINET_APPIE_MAX + sizeof(struct wifi_mac_ie_vht_cap) + sizeof(struct wifi_mac_ie_vht_opt)
-        + sizeof(struct wifi_mac_ie_vht_txpwr_env) + sizeof(struct wifi_mac_ie_vht_ch_sw_wrp) + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX;
+        + sizeof(struct wifi_mac_ie_vht_txpwr_env) + sizeof(struct wifi_mac_ie_vht_ch_sw_wrp) + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX
+        + (((wnet_vif->vm_flags & WIFINET_F_WPA) && (wnet_vif->vm_flags & WIFINET_F_H2E))? WIFINET_RSNXE_SIZE:0);
 
     skb = wifi_mac_get_mgmt_frm(wifimac, pkt_len);
     if (skb == NULL)
@@ -2556,8 +2570,12 @@ int wifi_mac_send_probe_rsp(struct wlan_net_vif  *wnet_vif,
     if (WIFINET_INCLUDE_11G(wnet_vif->vm_mac_mode))
         frm = wifi_mac_add_erp(frm, wifimac);
 
-    if (wnet_vif->vm_flags & WIFINET_F_WPA)
+    if (wnet_vif->vm_flags & WIFINET_F_WPA) {
         frm = wifi_mac_add_wpa(frm, wnet_vif);
+        if (wnet_vif->vm_flags & WIFINET_F_H2E) {
+            frm = wifi_mac_add_rsnxe(frm, wnet_vif);
+        }
+    }
 
     if (wnet_vif->vm_flags & WIFINET_F_WME)
     {
@@ -2812,18 +2830,19 @@ static int aml_rsn_sync_pmkid(struct wifi_station *sta, int pmkid_index)
 void wifi_mac_check_opt_ie(struct wlan_net_vif *wnet_vif)
 {
     unsigned char *frm = wnet_vif->vm_opt_ie;
-    unsigned int i = 0, j = 0;
+    unsigned short ie_len = 0;
+    unsigned int ie_oft = 0;//ie addr offset
 
-    while(i < wnet_vif->vm_opt_ie_len) {
-        if (frm[i] == WIFINET_ELEMID_SUPP_REG_CLASS) {
-            j = i + frm[i+1] + 2;
-            if (j < wnet_vif->vm_opt_ie_len) {
-                memcpy(&frm[i], &frm[j], wnet_vif->vm_opt_ie_len - j);
+    while (ie_oft < wnet_vif->vm_opt_ie_len) {
+        ie_len = frm[ie_oft + 1] + 2;
+        if (frm[ie_oft] == WIFINET_ELEMID_SUPP_REG_CLASS) {
+            if (ie_oft + ie_len < wnet_vif->vm_opt_ie_len) {
+                memcpy(&frm[ie_oft], &frm[ie_oft + ie_len], wnet_vif->vm_opt_ie_len - ie_oft - ie_len);
+                wnet_vif->vm_opt_ie_len -= ie_len;
             }
-            wnet_vif->vm_opt_ie_len -= (frm[i+1] + 2);
             return;
         }
-        i += frm[i+1] + 2;
+        ie_oft += ie_len;
     }
 }
 
@@ -2977,7 +2996,8 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
     pkt_len = sizeof(capinfo) + sizeof(unsigned short) + sizeof(unsigned short) + 2 + WIFINET_RATE_SIZE + sizeof(struct wifi_mac_ie_timeout)
         + 2 + (WIFINET_RATE_MAXSIZE - WIFINET_RATE_SIZE) + sizeof(struct wifi_mac_wme_param) + sizeof(struct wifi_mac_ie_htcap)
         + sizeof(struct wifi_mac_ie_htinfo) + sizeof (struct wifi_mac_ie_obss_scan) + sizeof (struct wifi_mac_ie_ext_cap) + WIFINET_APPIE_MAX
-        + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX;
+        + sizeof(struct wifi_mac_vendor_ie) * VENDOR_IE_MAX
+        + ((sta->sta_use_h2e == WIFINET_H2E_VALID)? WIFINET_RSNXE_SIZE:0);
 
     skb = wifi_mac_get_mgmt_frm(wifimac, pkt_len);
     if (skb == NULL) {
@@ -3028,6 +3048,11 @@ int wifi_mac_send_assoc_rsp(struct wlan_net_vif *wnet_vif, struct wifi_station *
     if ((wnet_vif->vm_flags & WIFINET_F_WME) && sta->sta_wme_ie != NULL) {
         frm = wifi_mac_add_wme_param(frm, &wifimac->wm_wme[wnet_vif->wnet_vif_id],
             WIFINET_VMAC_UAPSD_ENABLED(wnet_vif));
+    }
+
+    if (sta->sta_use_h2e == WIFINET_H2E_VALID) {
+        frm = wifi_mac_add_rsnxe(frm, wnet_vif);
+        AML_OUTPUT("add rsnxe ie\n");
     }
 
     pr_debug("%s %d sta flags: 0x%x, assoc success :%d.\n",__func__,__LINE__,sta->sta_flags, *(int *)arg);

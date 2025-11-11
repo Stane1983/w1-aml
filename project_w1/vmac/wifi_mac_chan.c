@@ -1408,9 +1408,10 @@ void wifi_mac_restore_wnet_vif_channel(struct wlan_net_vif *wnet_vif)
     tasklet_schedule(&wifimac->drv_priv->ampdu_tasklet);
 }
 
-static void wifi_mac_restore_wnet_vif_channel_task_ex(void * data)
+static void wifi_mac_restore_wnet_vif_channel_task_ex(SYS_TYPE param1, SYS_TYPE param2, SYS_TYPE param3,
+    SYS_TYPE param4, SYS_TYPE param5)
 {
-    struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)data;
+    struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param1;
     wifi_mac_restore_wnet_vif_channel(wnet_vif);
 }
 

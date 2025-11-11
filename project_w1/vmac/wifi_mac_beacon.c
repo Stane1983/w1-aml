@@ -114,8 +114,13 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
         frm = wifi_mac_add_erp(frm, wifimac);
     }
 
-    if (wnet_vif->vm_flags & WIFINET_F_WPA)
+    if (wnet_vif->vm_flags & WIFINET_F_WPA) {
         frm = wifi_mac_add_wpa(frm, wnet_vif);
+        if (wnet_vif->vm_flags & WIFINET_F_H2E) {
+            frm = wifi_mac_add_rsnxe(frm, wnet_vif);
+            AML_OUTPUT("added rsnxe ie\n");
+        }
+    }
 
     frm = wifi_mac_add_xrates(frm, rs);
     if (wnet_vif->vm_flags & WIFINET_F_WME) {
@@ -1014,23 +1019,21 @@ void wifi_mac_set_beacon_miss(SYS_TYPE param1,
     return;
 }
 
-static int wifi_mac_set_vsdb_ex(struct wlan_net_vif *wnet_vif, unsigned char enable)
+static void wifi_mac_set_vsdb_ex(struct wlan_net_vif *wnet_vif, unsigned char enable)
 {
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
     pr_debug("%s, vid:%d, enable:%d\n", __func__, wnet_vif->wnet_vif_id, enable);
     wifimac->drv_priv->drv_ops.drv_set_vsdb(wifimac->drv_priv, wnet_vif->wnet_vif_id, enable);
-    return 0;
 }
 
-int wifi_mac_set_vsdb(SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3,
+void wifi_mac_set_vsdb(SYS_TYPE param1, SYS_TYPE param2,SYS_TYPE param3,
     SYS_TYPE param4,SYS_TYPE param5)
 {
     struct wlan_net_vif *wnet_vif = (struct wlan_net_vif *)param4;
     unsigned char enable = (unsigned char)param3;
 
     wifi_mac_set_vsdb_ex(wnet_vif, enable);
-    return 0;
 }
 
 void wifi_mac_beacon_update_csaie(struct wifi_station *sta,
