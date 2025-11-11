@@ -281,6 +281,11 @@ wifi_mac_scan_connect(struct wifi_mac_scan_state *ss, struct wlan_net_vif *wnet_
         return 0;
     }
 
+    if (wnet_vif->vm_mainsta && (wnet_vif->vm_mainsta->connect_status != CONNECT_CONNECTING)) {
+        ERROR_DEBUG_OUT("connection stop, connect_status:%d\n", wnet_vif->vm_mainsta->connect_status);
+        return 0;
+    }
+
     KASSERT((wnet_vif->vm_opmode == WIFINET_M_IBSS)
         ||(wnet_vif->vm_opmode == WIFINET_M_STA)
         ||(wnet_vif->vm_opmode == WIFINET_M_P2P_DEV)
@@ -636,7 +641,7 @@ void wifi_mac_update_roaming_candidate_chan(struct wlan_net_vif *wnet_vif,const 
     int nssid = sp->ssid[1];
     static struct wifi_channel * apchan = NULL;
 
-    apchan= wifi_mac_scan_sta_get_ap_channel(wnet_vif, (struct wifi_mac_scan_param *)sp);
+    apchan = wifi_mac_scan_sta_get_ap_channel(wnet_vif, sp->chan, sp->htinfo, sp->htcap, sp->vht_opt);
     if (apchan == NULL) {
          DPRINTF(AML_DEBUG_INFO, "%s(%d) apchan = %p\n", __func__,__LINE__,apchan);
         return;
@@ -675,7 +680,7 @@ void wifi_mac_scan_rx(struct wlan_net_vif *wnet_vif, const struct wifi_mac_scan_
         AML_PRINT(AML_DBG_MODULES_SCAN, "<running> %d %s chan %d \n", sp->ssid[1], ssidie_sprintf(sp->ssid), sp->chan);
     }
 
-    apchan = wifi_mac_scan_sta_get_ap_channel(wnet_vif, (struct wifi_mac_scan_param *)sp);
+    apchan = wifi_mac_scan_sta_get_ap_channel(wnet_vif, sp->chan, sp->htinfo, sp->htcap, sp->vht_opt);
     if (apchan == NULL) {
         AML_PRINT(AML_DBG_MODULES_SCAN, "ssid %s ,apchan = %p\n", ssidie_sprintf(sp->ssid), apchan);
         return;
@@ -1675,6 +1680,7 @@ void wifi_mac_end_scan( struct wifi_mac_scan_state *ss)
     struct wifi_mac *wifimac = wnet_vif->vm_wmac;
     int find_roaming_node = 0;
     static int before_conn_scan_times = 0;
+    unsigned char vm_scan_before_connect_flag = 0;
 
     if (!(wifimac->wm_flags & WIFINET_F_SCAN)) {
         ERROR_DEBUG_OUT("not in scan status\n");
@@ -1740,8 +1746,11 @@ void wifi_mac_end_scan( struct wifi_mac_scan_state *ss)
             before_conn_scan_times = 0;
 
         } else {
-            if (wnet_vif->vm_scan_before_connect_flag) {
+            if (wnet_vif->vm_scan_before_connect_flag || (ss->scan_CfgFlags & WIFINET_SCANCFG_CONNECT)) {
                 before_conn_scan_times++;
+                vm_scan_before_connect_flag = wnet_vif->vm_scan_before_connect_flag;
+            } else {
+                before_conn_scan_times = 0;
             }
         }
     } else if ((wnet_vif->vm_opmode == WIFINET_M_HOSTAP)
@@ -1810,7 +1819,7 @@ void wifi_mac_end_scan( struct wifi_mac_scan_state *ss)
     }
 
     if (before_conn_scan_times == 1) {
-        wnet_vif->vm_scan_before_connect_flag = 1;
+        wnet_vif->vm_scan_before_connect_flag = vm_scan_before_connect_flag;
         wifi_mac_start_scan(wnet_vif, WIFINET_SCANCFG_USERREQ | WIFINET_SCANCFG_ACTIVE | WIFINET_SCANCFG_FLUSH |
         WIFINET_SCANCFG_CREATE, wnet_vif->vm_des_nssid, wnet_vif->vm_des_ssid);
 
@@ -2023,8 +2032,15 @@ static int wifi_mac_scan_before_connect(struct wifi_mac_scan_state *ss, struct w
     }
 
     if (wifi_mac_scan_get_match_node(ss, wnet_vif) == 0) {
-         pr_err("%s not found bss in former scan results\n", __func__);
-
+        if (wnet_vif->vm_des_channel != NULL) {
+            wnet_vif->vm_scan_before_connect_flag = 1;
+            wnet_vif->vm_connchan.conn_chan[wnet_vif->vm_connchan.num++] = wnet_vif->vm_des_channel;
+            WIFINET_ADDR_COPY(wnet_vif->vm_connchan.da, wnet_vif->vm_des_bssid);
+            WIFINET_ADDR_COPY(wnet_vif->vm_connchan.bssid, wnet_vif->vm_des_bssid);
+            AML_OUTPUT("add connet scan, chan_pri_num:%d, count:%d \n",wnet_vif->vm_des_channel->chan_pri_num, wnet_vif->vm_connchan.num);
+        } else {
+            AML_OUTPUT("no connect bss in former scan list, vm_des_channel is null\n");
+        }
     } else {
         wnet_vif->vm_scan_before_connect_flag = 1;
     }
@@ -2122,6 +2138,18 @@ int wifi_mac_chk_scan(struct wlan_net_vif *wnet_vif, int flags,
                    wnet_vif->wnet_vif_id, wifimac->wm_flags, ss->scan_CfgFlags, ss->scan_StateFlags,
                    ss->scan_next_chan_index, ss->scan_last_chan_index);
         return 0;
+    }
+
+    if (wnet_vif->vm_opmode == WIFINET_M_STA) {
+        if (wnet_vif->vm_des_nssid == 0) {
+            ERROR_DEBUG_OUT("scan not trigger as vm_des_bssid is empty\n");
+            return 0;
+        }
+
+        if ((wnet_vif->vm_mainsta != NULL) && (wnet_vif->vm_mainsta->connect_status != CONNECT_CONNECTING)) {
+            ERROR_DEBUG_OUT("scan not trigger as connect_status:%d\n", wnet_vif->vm_mainsta->connect_status);
+            return 0;
+        }
     }
 
     ss->scan_CfgFlags |= WIFINET_SCANCFG_CONNECT;

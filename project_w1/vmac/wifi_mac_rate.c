@@ -912,3 +912,18 @@ int wifi_mac_fixed_rate_check(struct wifi_station *sta, struct wifi_mac_rateset 
     }
     return 0;
 }
+
+unsigned char wifi_mac_find_rate(unsigned char rate_value, struct wifi_mac_rateset rate_table)
+{
+    unsigned char i = 0;
+
+    for (i = 0; i < rate_table.dot11_rate_num; i++)
+    {
+        if (WIFINET_GET_RATE_VAL(rate_value) == WIFINET_GET_RATE_VAL(rate_table.dot11_rate[i]))
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}

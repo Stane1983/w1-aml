@@ -1844,50 +1844,66 @@ void drv_flush_normal_buffer_queue(struct drv_private *drv_priv, unsigned char v
     struct list_head txdesc_list_head;
     struct aml_driver_nsta *drv_sta;
     struct wlan_net_vif *wnet_vif = NULL;
+    signed char status = 0;
 
     INIT_LIST_HEAD(&txdesc_list_head);
 
-    DRV_TX_NORMAL_BUF_LOCK(drv_priv);
-    while (!list_empty(&drv_priv->drv_normal_buffer_queue[vid]))
+    while (1)
     {
-        ptxdesc = list_first_entry(&drv_priv->drv_normal_buffer_queue[vid], struct drv_txdesc, txdesc_queue);
-        list_del_init(&ptxdesc->txdesc_queue);
-        list_add_tail(&ptxdesc->txdesc_queue, &txdesc_list_head);
+        DRV_TX_NORMAL_BUF_LOCK(drv_priv);
+        do {
+            status = 0;
+            if (!list_empty(&drv_priv->drv_normal_buffer_queue[vid])) {
+                ptxdesc = list_first_entry(&drv_priv->drv_normal_buffer_queue[vid], struct drv_txdesc, txdesc_queue);
+                txlist = &drv_priv->drv_txlist_table[ptxdesc->txinfo->queue_id];
 
-        drv_sta = ptxdesc->txdesc_sta;
-        txlist = &drv_priv->drv_txlist_table[ptxdesc->txinfo->queue_id];
+                ASSERT(txlist->txlist_qnum == ptxdesc->txinfo->queue_id);
+                if (aml_tx_hal_buffer_full(drv_priv,txlist->txlist_qnum, 1, 1) == 1)
+                {
+                    status = -1;
+                    break;
+                }
 
-        ASSERT(txlist->txlist_qnum == ptxdesc->txinfo->queue_id);
-        if (aml_tx_hal_buffer_full(drv_priv,txlist->txlist_qnum, 1, 1) == 1)
-        {
-            list_add_tail(&ptxdesc->txdesc_queue, &drv_priv->drv_normal_buffer_queue[vid]);
-            DRV_TX_NORMAL_BUF_UNLOCK(drv_priv);
-            return;
-        }
+                list_del_init(&ptxdesc->txdesc_queue);
+                drv_priv->drv_normal_buffer_count[vid]--;
+
+                drv_sta = ptxdesc->txdesc_sta;
+                if (drv_sta == NULL || drv_sta->net_nsta == NULL) {
+                    AML_OUTPUT("drv_sta:0x%x\n", drv_sta);
+                    status = 1;
+                    break;
+                }
+
+                wnet_vif = ((struct wifi_station *)(drv_sta->net_nsta))->sta_wnet_vif;
+                if (wnet_vif == NULL || wnet_vif->vm_state != WIFINET_S_CONNECTED) {
+                    status = 2;
+                    break;
+                }
+
+                list_add_tail(&ptxdesc->txdesc_queue, &txdesc_list_head);
+            } else {
+                status = -1;
+                break;
+            }
+        } while(0);
         DRV_TX_NORMAL_BUF_UNLOCK(drv_priv);
 
-        if (drv_sta == NULL) {
+        if (status < 0) {
+            break;
+        } else if (status > 0) {
+            AML_OUTPUT("drop buffer txdesc, reason:%d\n", status);
+            drv_tx_complete(drv_priv, ptxdesc, 0);
             continue;
         }
 
-        if (drv_sta->net_nsta != NULL) {
-            wnet_vif = ((struct wifi_station *)(drv_sta->net_nsta))->sta_wnet_vif;
+        ptxdesc->txinfo->b_Ampdu = 0;
+        /* coverity[LOCK:SUPPRESS] */
+        if (drv_tx_normal(drv_priv, txlist, &txdesc_list_head, vid))
+        {
+            ASSERT(0);
+            return;
         }
-
-        if ((wnet_vif != NULL) && (wnet_vif->vm_state == WIFINET_S_CONNECTED)) {
-            ptxdesc->txinfo->b_Ampdu = 0;
-            if (drv_tx_normal(drv_priv, txlist, &txdesc_list_head, vid))
-            {
-                ASSERT(0);
-                return;
-            }
-        } else {
-            drv_tx_complete(drv_priv, ptxdesc, 0);
-        }
-        DRV_TX_NORMAL_BUF_LOCK(drv_priv);
-        drv_priv->drv_normal_buffer_count[vid]--;
     }
-    DRV_TX_NORMAL_BUF_UNLOCK(drv_priv);
 }
 
 unsigned short drv_tx_pending_pkt(struct drv_private *drv_priv)
@@ -2500,6 +2516,7 @@ drv_tx_normal(struct drv_private *drv_priv, struct drv_txlist *txlist, struct li
     if (!drv_priv->is_mother_channel[vid] && !WIFINET_IS_PROBEREQ(wh) && (!ptxdesc->txinfo->b_dpp)) {
         pr_debug("%s vid:%d not mother channel, buffer\n", __func__, vid);
 
+        list_del_init(&ptxdesc->txdesc_queue);
         DRV_TX_NORMAL_BUF_LOCK(drv_priv);
         list_add_tail(&ptxdesc->txdesc_queue, &drv_priv->drv_normal_buffer_queue[vid]);
         drv_priv->drv_normal_buffer_count[vid]++;

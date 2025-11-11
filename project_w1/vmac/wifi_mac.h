@@ -96,8 +96,12 @@ enum wifi_mac_bwc_width
 enum sta_connect_status
 {
     CONNECT_IDLE,
+    CONNECT_CONNECTING,
+    CONNECT_CONNECTED,
     CONNECT_FOUR_WAY_HANDSHAKE_COMPLETED,
     CONNECT_DHCP_GET_ACK,
+    CONNECT_DISCONNECTING,
+    CONNECT_DISCONNECTED,
 };
 
 enum
@@ -314,10 +318,11 @@ enum wifi_mac_pub_act_state
     WIFINET_PUB_MAX,
 };
 
-#define PHASE_CONNECTING	1
-#define PHASE_DISCONNECTING	2
-#define PHASE_TX_BUFF_QUEUE	4
-#define PHASE_DISCONNECT_DELAY	8
+#define PHASE_CONNECTING                1
+#define PHASE_DISCONNECTING             2
+#define PHASE_TX_BUFF_QUEUE             4
+#define PHASE_DISCONNECT_DELAY          8
+#define PHASE_WAIT_DISCONNECT_RESULT    16
 
 enum wifi_mac_recovery_state
 {
@@ -668,6 +673,7 @@ enum wifi_mac_sae_message_type {
     WIFINET_SAE_CONFIRM = 0x2,
 };
 
+#define WIFINET_SAE_H2E_ONLY 0xfb
 enum wifi_mac_h2e_status {
     WIFINET_H2E_NONE,
     WIFINET_H2E_PEER_SUPPOR,

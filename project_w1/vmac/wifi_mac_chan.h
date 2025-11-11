@@ -10,7 +10,8 @@ int wifi_mac_chan_attach(struct wifi_mac *wifimac);
 int wifi_mac_chan_overlapping_map_init(struct wifi_mac *wifimac);
 unsigned char wifi_mac_chan_num_avail (struct wifi_mac *wifimac, unsigned char channum);
 int wifi_mac_recv_bss_intol_channelCheck(struct wifi_mac *wifimac, struct wifi_mac_ie_intolerant_report *intol_ie);
-struct wifi_channel * wifi_mac_scan_sta_get_ap_channel(struct wlan_net_vif *wnet_vif, struct wifi_mac_scan_param *sp);
+struct wifi_channel * wifi_mac_scan_sta_get_ap_channel(struct wlan_net_vif *wnet_vif,
+    unsigned char chan, unsigned char *htinfoie, unsigned char *htcapie, unsigned char *vht_optie);
 unsigned int wifi_mac_mhz2chan(unsigned int freq);
 struct wifi_channel * wifi_mac_find_chan(struct wifi_mac *wifimac, int chan, int bw, int center_chan);
 int wifi_mac_set_wnet_vif_channel(struct wlan_net_vif *wnet_vif,  int chan, int bw, int center_chan,unsigned char switch_flag);

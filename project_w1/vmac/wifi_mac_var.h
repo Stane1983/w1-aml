@@ -135,6 +135,7 @@ struct vm_wlan_net_vif_params
 #define DEFAULT_MGMT_RETRY_INTERVAL 512
 #define DEFAULT_P2P_ACTION_RETRY_INTERVAL 50
 #define DEFAULT_AUTH_RETRY_INTERVAL 512
+#define DEFAULT_DEAUTH_TOT 5000
 
 #define WIFINET_PS_MAX_QUEUE  100
 
@@ -328,6 +329,20 @@ enum
     CONCURRENT_NOTIFY_AP_SUCCESS = BIT(2),
     CONCURRENT_AP_SWITCH_CHANNEL = BIT(3),
     CONCURRENT_SWITCH_TO_STA_CHANNEL = BIT(4),
+};
+
+enum DisconnectionReasonCode {
+    DISCONNECT_SYSTEM,             ///< Disconnection initiated by higher layer.
+    DISCONNECT_DRVINIT,            ///< Generic Disconnection initiated by Driver.
+    DISCONNECT_NETDEVDOWN,         ///< Disconnection initiated by driver when the network interface is down.
+    DISCONNECT_DFSDETECTION,       ///< Disconnection by Driver when DFS is detected on the serving channel.
+    DISCONNECT_UNSUPCHAN,          ///< Disconnection by Driver when AP switched to an unsupported channel.
+    DISCONNECT_DFSCHAN,            ///< Disconnection by Driver when AP switched to a DFS channel.
+    DISCONNECT_APLEAVE,            ///< Disconnection by Driver when connection to AP is lost.
+    DISCONNECT_APROAMFAIL,         ///< Disconnection by Driver when Roaming Failed.
+    DISCONNECT_RCVDEAUTH,          ///< Disconnection initiated by AP and Deauth Received.
+    DISCONNECT_RCVDISASSOC,        ///< Disconnection initiated by AP and Disassoc Received.
+    DISCONNECT_GENERIC             ///< Uncategorized Disconnection Reasons.
 };
 
 struct chan_switch_target_t {
@@ -577,6 +592,7 @@ struct wlan_net_vif
     unsigned char wnet_vif_id;
     enum wifi_mac_opmode vm_opmode;
     enum wifi_mac_state vm_state;
+    enum wifi_mac_state vm_state_pre;
     unsigned char remain_on_channel;
     struct ieee80211_channel remain_on_ch_channel;
     unsigned long long remain_on_ch_cookie;
@@ -719,6 +735,9 @@ struct wlan_net_vif
     struct wifi_mac_p2p* vm_p2p;
     int vm_p2p_support;
 #endif
+    unsigned int disconnect_reason_code;
+    unsigned char vm_sae_h2e_only;
+    struct wifi_channel *vm_des_channel;
 };
 
 #define WIFINET_PSQUEUE_PS4QUIET 0x0001

@@ -1075,20 +1075,20 @@ int wifi_mac_recv_bss_intol_channelCheck(struct wifi_mac *wifimac, struct wifi_m
     return false;
 }
 
-struct wifi_channel * wifi_mac_scan_sta_get_ap_channel(struct wlan_net_vif *wnet_vif, struct wifi_mac_scan_param *sp)
+struct wifi_channel * wifi_mac_scan_sta_get_ap_channel(struct wlan_net_vif *wnet_vif,
+    unsigned char chan, unsigned char *htinfoie, unsigned char *htcapie, unsigned char *vht_optie)
 {
-    unsigned char *htinfoie = sp->htinfo;
-    unsigned char *htcapie = sp->htcap;
-    unsigned char chan = sp->chan;
-    struct wifi_mac_ie_htinfo *xhtinfo = (struct wifi_mac_ie_htinfo*)htinfoie;
     struct wifi_mac_ie_htcap *xhtcap =(struct wifi_mac_ie_htcap *)htcapie;
+    struct wifi_mac_ie_htinfo *xhtinfo = (struct wifi_mac_ie_htinfo*)htinfoie;
+    struct wifi_mac_ie_vht_opt *vht_opt_ie = (struct wifi_mac_ie_vht_opt *)vht_optie;
+
     struct wifi_mac_ie_htcap_cmn *htcap = NULL;
-    int htcapval = 0;
     struct wifi_mac_ie_htinfo_cmn *htinfo = NULL;
-    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
-    struct wifi_mac_ie_vht_opt *vht_opt_ie =  (struct wifi_mac_ie_vht_opt *)sp->vht_opt;
+
+    int htcapval = 0;
     int center_chan = 0, bw = 0;
     static struct wifi_channel *apchan =NULL;
+    struct wifi_mac *wifimac = wnet_vif->vm_wmac;
 
     if (xhtinfo != NULL)
     {
@@ -1100,8 +1100,8 @@ struct wifi_channel * wifi_mac_scan_sta_get_ap_channel(struct wlan_net_vif *wnet
         htcapval = le16toh(htcap->hc_cap);
     }
 
-    DPRINTF(AML_DEBUG_BWC, "%s(%d) %s, chan %d htinfo %p,chwidth %x, htcapval 0x%x \n", __func__, __LINE__,
-        ssidie_sprintf(sp->ssid), sp->chan, htinfo, htinfo?htinfo->hi_txchwidth : 0, htcapval);
+    DPRINTF(AML_DEBUG_BWC, "%s(%d), chan_num:%d, htinfo:%p, txchwidth:%d, htcapval:0x%x\n",
+        __func__, __LINE__, chan, htinfo, htinfo?htinfo->hi_txchwidth : 0, htcapval);
 
     if ((htinfo != NULL) && (htinfo->hi_txchwidth == WIFINET_HTINFO_TXWIDTH_2040))
     {

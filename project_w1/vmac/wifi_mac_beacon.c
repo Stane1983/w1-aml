@@ -20,7 +20,7 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
     struct wlan_net_vif *wnet_vif = sta->sta_wnet_vif;
     struct wifi_mac *wifimac = sta->sta_wmac;
     unsigned short capinfo;
-    struct wifi_mac_rateset *rs = &sta->sta_rates;
+    struct wifi_mac_rateset rs = sta->sta_rates;
     unsigned char index = 0;
 
     KASSERT(wnet_vif->vm_curchan != WIFINET_CHAN_ERR, ("no bss chan"));
@@ -64,7 +64,10 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
     }
 
     bo->bo_rates = frm;
-    frm = wifi_mac_add_rates(frm, rs);
+    if (wnet_vif->vm_sae_h2e_only == 1) {
+        rs.dot11_rate[rs.dot11_rate_num++] = WIFINET_SAE_H2E_ONLY;
+    }
+    frm = wifi_mac_add_rates(frm, &rs);
 
     /*VHT mode ,non-support DSSS Parameter Set*/
     *frm++ = WIFINET_ELEMID_DSPARMS;
@@ -122,7 +125,7 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
         }
     }
 
-    frm = wifi_mac_add_xrates(frm, rs);
+    frm = wifi_mac_add_xrates(frm, &rs);
     if (wnet_vif->vm_flags & WIFINET_F_WME) {
         bo->bo_wme = frm;
         frm = wifi_mac_add_wme_param(frm, &wifimac->wm_wme[wnet_vif->wnet_vif_id], WIFINET_VMAC_UAPSD_ENABLED(wnet_vif));
@@ -968,9 +971,8 @@ void wifi_mac_process_beacon_miss_ex(SYS_TYPE arg)
     }
     else {
         DPRINTF(AML_DEBUG_WARNING,"bcn lost...re-scan\n");
-
+        wnet_vif->disconnect_reason_code = 4;
         wnet_vif->vm_chan_roaming_scan_flag = 0;
-
         wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
     }
 }

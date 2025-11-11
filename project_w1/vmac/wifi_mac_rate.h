@@ -53,5 +53,5 @@ int wifi_mac_iserp_rateset(struct wifi_mac *,struct wifi_mac_rateset *);
 void wifi_mac_set_legacy_rates(struct wifi_mac_rateset *rs, struct wlan_net_vif *wnet_vif);
 void wifi_mac_sta_set_basic_rates(struct wlan_net_vif *wnet_vif, char *si_rates, char *si_exrates);
 void wifi_mac_ap_set_basic_rates(struct wlan_net_vif *wnet_vif, enum wifi_mac_macmode macmode);
-
+unsigned char wifi_mac_find_rate(unsigned char rate_value, struct wifi_mac_rateset rate_table);
 #endif

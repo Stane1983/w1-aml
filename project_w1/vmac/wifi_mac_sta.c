@@ -118,6 +118,7 @@ wifi_mac_start_bss_ex(unsigned long arg)
             memcpy(wnet_vif->vm_mainsta->sta_txseqs, obss->sta_txseqs, sizeof(obss->sta_txseqs));
         }
 
+        wnet_vif->vm_mainsta->connect_status = obss->connect_status;
         wifi_mac_rm_sta_from_wds_by_sta(&wnet_vif->vm_sta_tbl, obss);
 
         pr_debug("%s, obss:%p\n", __func__, obss);
@@ -619,6 +620,7 @@ void wifi_mac_sta_leave(struct wifi_station *sta, int reassoc)
     pr_debug("wifi_mac_sta_leave:%d, sta:%p, main_sta:%p\n", wnet_vif->wnet_vif_id, sta, wnet_vif->vm_mainsta);
     if (wnet_vif->vm_opmode == WIFINET_M_STA)
     {
+        sta->is_disconnecting = 1;
         wifimac->drv_priv->drv_ops.drv_set_pkt_drop(wifimac->drv_priv, wnet_vif->wnet_vif_id, 1);
         wnet_vif->vm_curchan = WIFINET_CHAN_ERR;
         if (wnet_vif->vm_flags_ext & WIFINET_FEXT_SWBMISS) {
@@ -664,6 +666,7 @@ void wifi_mac_sta_leave(struct wifi_station *sta, int reassoc)
             wnet_vif->vm_des_nssid = 0;
             memset(wnet_vif->vm_des_ssid, 0, IV_SSID_SCAN_AMOUNT*sizeof(struct wifi_mac_ScanSSID));
         }
+        sta->is_disconnecting = 0;
     }
     wnet_vif->vm_phase_flags &= ~PHASE_DISCONNECTING;
 

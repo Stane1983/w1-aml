@@ -2691,21 +2691,18 @@ static void wifi_mac_tx_timeout_ex (SYS_TYPE param1,
     if (wnet_vif->mgmt_pkt_retry_count++ < DEFAULT_MGMT_RETRY_TIMES) {
         if (wnet_vif->vm_state == WIFINET_S_AUTH) {
             /* swap the auth type between open and shared when auth timeout after sending auth frame to a wep AP */
-            if (wnet_vif->mgmt_pkt_retry_count == DEFAULT_MGMT_RETRY_TIMES -1) {
+            if (wnet_vif->mgmt_pkt_retry_count == DEFAULT_MGMT_RETRY_TIMES - 1) {
                 if ((wnet_vif->vm_flags & WIFINET_F_PRIVACY) && !(wnet_vif->vm_flags & WIFINET_F_WPA)) {
                     if (wnet_vif->vm_mainsta->sta_authmode == WIFINET_AUTH_SHARED) {
                         wnet_vif->vm_mainsta->sta_authmode = WIFINET_AUTH_OPEN;
-
                     } else {
                         wnet_vif->vm_mainsta->sta_authmode = WIFINET_AUTH_SHARED;
                     }
                 }
             }
             wifi_mac_top_sm(wnet_vif, WIFINET_S_AUTH, WIFINET_FC0_SUBTYPE_DEAUTH);
-
         } else if (wnet_vif->vm_state == WIFINET_S_ASSOC) {
             wifi_mac_top_sm(wnet_vif, WIFINET_S_ASSOC, 0);
-
         }  else {
             wnet_vif->mgmt_pkt_retry_count = 0;
             return;
@@ -2718,6 +2715,7 @@ static void wifi_mac_tx_timeout_ex (SYS_TYPE param1,
 
     wnet_vif->mgmt_pkt_retry_count = 0;
     if ((wnet_vif->vm_state == WIFINET_S_AUTH) || (wnet_vif->vm_state == WIFINET_S_ASSOC)) {
+        wnet_vif->disconnect_reason_code = WLAN_STATUS_UNSPECIFIED_FAILURE;
         vm_cfg80211_indicate_disconnect(wnet_vif);
         wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
     }
@@ -2865,6 +2863,7 @@ wifi_mac_sub_sm(struct wlan_net_vif *wnet_vif, enum wifi_mac_state nstate, int a
     int mgmt_arg;
 
     prestate = wnet_vif->vm_state;
+    wnet_vif->vm_state_pre = wnet_vif->vm_state;
     wnet_vif->vm_state = nstate;
 
     if (prestate == WIFINET_S_CONNECTED && nstate != WIFINET_S_CONNECTED)
@@ -2994,9 +2993,17 @@ wifi_mac_sub_sm(struct wlan_net_vif *wnet_vif, enum wifi_mac_state nstate, int a
                 case WIFINET_S_AUTH:
                 case WIFINET_S_ASSOC:
                     /* if (wifimac->wm_roaming == WIFINET_ROAMING_AUTO) */
-                    {
-                        WIFINET_DPRINTF(AML_DEBUG_STATE,"%s(%d) sm:scan/connecting/auth/assoc:",  __func__,__LINE__);
+                    if (sta->connect_status == CONNECT_DISCONNECTING) {
+                        struct vm_wdev_priv *pwdev_priv = wdev_to_priv(wnet_vif->vm_wdev);
 
+                        pr_debug("%s, cancel connect and indicate disconnect\n", __func__);
+                        os_timer_ex_cancel(&pwdev_priv->connect_timeout, CANCEL_SLEEP);
+                        wifi_mac_notify_nsta_disconnect(sta, 0);
+                        wnet_vif->vm_des_nssid = 0;
+                        wnet_vif->vm_curchan = WIFINET_CHAN_ERR;
+                        memset(wnet_vif->vm_des_ssid, 0, IV_SSID_SCAN_AMOUNT*sizeof(struct wifi_mac_ScanSSID));
+                    } else {
+                        pr_debug("%s, sm:scan/connecting/auth/assoc:", __func__);
                         wifi_mac_chk_scan(wnet_vif, WIFINET_SCANCFG_ACTIVE| WIFINET_SCANCFG_FLUSH |arg,
                             wnet_vif->vm_des_nssid, wnet_vif->vm_des_ssid);
                     }
@@ -3045,6 +3052,11 @@ wifi_mac_sub_sm(struct wlan_net_vif *wnet_vif, enum wifi_mac_state nstate, int a
 
             if (prestate != nstate) {
                 wnet_vif->mgmt_pkt_retry_count = 0;
+            }
+
+            if (sta->connect_status >= CONNECT_DISCONNECTING) {
+                wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_sm_switch, NULL, (SYS_TYPE)wnet_vif, WIFINET_S_SCAN, 0, 0, 0);
+                break;
             }
 
             switch (prestate) {
@@ -3116,6 +3128,11 @@ wifi_mac_sub_sm(struct wlan_net_vif *wnet_vif, enum wifi_mac_state nstate, int a
 
             if (prestate != nstate) {
                 wnet_vif->mgmt_pkt_retry_count = 0;
+            }
+
+            if (sta->connect_status >= CONNECT_DISCONNECTING) {
+                wifi_mac_add_work_task(wnet_vif->vm_wmac, wifi_mac_sm_switch, NULL, (SYS_TYPE)wnet_vif, WIFINET_S_SCAN, 0, 0, 0);
+                break;
             }
 
             switch (prestate)
@@ -3196,6 +3213,7 @@ wifi_mac_sub_sm(struct wlan_net_vif *wnet_vif, enum wifi_mac_state nstate, int a
                     wnet_vif->vm_des_bssid[3], wnet_vif->vm_des_bssid[4], wnet_vif->vm_des_bssid[5]);
                 pr_debug("****************************************************\n");
                 g_auto_gain_base = 0;
+                wnet_vif->disconnect_reason_code = 0;
             }
 
             wifi_mac_sta_auth(sta);
@@ -4527,7 +4545,7 @@ void wifi_mac_fw_recovery(struct wlan_net_vif *wnet_vif)
 
     if (wifimac->recovery_stat & WIFINET_RECOVERY_UNDER_CONNECT) {
         wifimac->recovery_stat = WIFINET_RECOVERY_VIF_UP;
-
+        wnet_vif->vm_mainsta->connect_status = CONNECT_CONNECTING;
         os_timer_ex_start(&pwdev_priv->connect_timeout);
         wifi_mac_chk_scan(wnet_vif, WIFINET_SCANCFG_ACTIVE| WIFINET_SCANCFG_FLUSH, wnet_vif->vm_des_nssid, wnet_vif->vm_des_ssid);
 

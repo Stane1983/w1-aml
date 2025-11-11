@@ -1147,8 +1147,8 @@ wifi_mac_auth_open(struct wifi_station *sta, struct wifi_frame *wh,
                 WIFINET_DPRINTF_STA(AML_DEBUG_DEBUG | AML_DEBUG_CONNECT, sta, "open auth failed (reason %d)", status);
                 wnet_vif->vif_sts.sts_rx_auth_fail++;
                 pr_debug("<running> %s %d \n",__func__,__LINE__);
+                wnet_vif->disconnect_reason_code = status;
                 wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
-
             } else {
                 pr_debug("<running> %s %d \n",__func__,__LINE__);
                 /*authentication success and change SM to send assoc req. */
@@ -1211,17 +1211,21 @@ static void wifi_mac_auth_sae(struct wifi_station *sta, struct sk_buff *skb,
             }
 
             if (status != 0) {
-                if (sta->sta_use_h2e == WIFINET_H2E_VALID && (status == WIFINET_STATUS_SAE_H2E)
-                 && (msg_type == WIFINET_SAE_COMMIT)) {
-                 //h2e status notify uplyer
+                if ((sta->sta_use_h2e == WIFINET_H2E_VALID)
+                    && (status == WIFINET_STATUS_SAE_H2E)
+                    && (msg_type == WIFINET_SAE_COMMIT)) {
+                    //h2e status notify uplyer
                 } else if ((status == WIFINET_STATUS_ANTI_TOKEN_REQUESTED) && (msg_type == WIFINET_SAE_COMMIT)) {
                  //Anti-Token-Requested
                 } else {
                     WIFINET_DPRINTF_STA(AML_DEBUG_WARNING, sta, "sae auth failed (reason %d)", status);
+                    wnet_vif->disconnect_reason_code = status;
+                    vm_cfg80211_indicate_disconnect(wnet_vif);
+                    wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
                 }
             }
 
-            vm_cfg80211_notify_mgmt_rx(wnet_vif, channel, os_skb_data(skb),os_skb_get_pktlen(skb));
+            vm_cfg80211_notify_mgmt_rx(wnet_vif, channel, os_skb_data(skb), os_skb_get_pktlen(skb));
             break;
 
         default:
@@ -1458,6 +1462,7 @@ wifi_mac_auth_shared(struct wifi_station *sta, struct wifi_frame *wh,
                             "shared key auth failed (reason %d)",
                             status);
                         wnet_vif->vif_sts.sts_rx_auth_fail++;
+                        wnet_vif->disconnect_reason_code = status;
                         goto bad;
                     }
                     pr_debug("<running> %s %d \n",__func__,__LINE__);
@@ -3702,7 +3707,7 @@ static void wifi_mac_status_code_handle(struct wifi_station *sta, unsigned char 
             os_timer_ex_start_period(&wnet_vif->vm_sm_switch, timeout);
             return;
         }
-
+        wnet_vif->disconnect_reason_code = scan->status_code;
         wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN,0);
     }
 
@@ -3743,6 +3748,13 @@ static void wifi_mac_recv_auth(struct wlan_net_vif *wnet_vif,
         return;
     }
 
+    if ((wnet_vif->vm_opmode == WIFINET_M_STA) && (sta->connect_status >= CONNECT_DISCONNECTING)) {
+        pr_debug("%s, %d, ignor auth frm, connect_status:%d\n", __func__,__LINE__, sta->connect_status);
+        os_timer_ex_cancel(&wnet_vif->vm_mgtsend, CANCEL_NO_SLEEP);
+        wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
+        return;
+    }
+
     if ((wnet_vif->vm_aclop != NULL) && !wnet_vif->vm_aclop->iac_check(wnet_vif, wh->i_addr2)) {
         WIFINET_DPRINTF( AML_DEBUG_ACL, "auth %s", "disallowed by ACL");
         wnet_vif->vif_sts.sts_rx_acl_mismatch++;
@@ -3772,6 +3784,7 @@ static void wifi_mac_recv_auth(struct wlan_net_vif *wnet_vif,
             && status != WIFINET_STATUS_SUCCESS) { //maybe the password is wrong, not the auth type
             AML_OUTPUT("auth reject:%d\n", status);
             os_timer_ex_cancel(&wnet_vif->vm_mgtsend, CANCEL_NO_SLEEP);
+            wnet_vif->disconnect_reason_code = status;
             vm_cfg80211_indicate_disconnect(wnet_vif);
             wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
             return;
@@ -4248,6 +4261,13 @@ void wifi_mac_recv_assoc_rsp(struct wlan_net_vif *wnet_vif,
         return;
     }
 
+    if (sta->connect_status >= CONNECT_DISCONNECTING) {
+        ERROR_DEBUG_OUT("ignor assoc rsp frm, connect_status:%d\n", sta->connect_status);
+        os_timer_ex_cancel(&wnet_vif->vm_mgtsend, CANCEL_NO_SLEEP);
+        wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
+        return;
+    }
+
     wifi_mac_pkt_parse_element(wnet_vif, sta, skb, &scan, &invalid, &drop);
     AML_OUTPUT("%s assoc status code:%d\n", __func__, scan.status_code);
 
@@ -4404,7 +4424,8 @@ void wifi_mac_recv_deauth(struct wlan_net_vif *wnet_vif,
             case WIFINET_M_STA:
                 if (wnet_vif->vm_state != WIFINET_S_INIT) {
                     wnet_vif->vm_chan_roaming_scan_flag = 0;
-
+                    wnet_vif->disconnect_reason_code = reason;
+                    sta->connect_status = CONNECT_DISCONNECTING;
                     wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
                 }
                 break;
@@ -4468,6 +4489,8 @@ void wifi_mac_recv_disassoc(struct wlan_net_vif *wnet_vif,
         {
             case WIFINET_M_STA:
                 if (wnet_vif->vm_state == WIFINET_S_CONNECTED) {
+                    wnet_vif->disconnect_reason_code = reason;
+                    sta->connect_status = CONNECT_DISCONNECTING;
                     wifi_mac_top_sm(wnet_vif, WIFINET_S_SCAN, 0);
 
                 } else {
