@@ -3760,7 +3760,7 @@ static int _iv_cfg80211_add_set_beacon(struct wiphy *wiphy, struct net_device *d
                 wnet_vif->vm_sae_h2e_only = 1;
             }
         }
-        AML_OUTPUT("basic_len:%d, extend_len:%, dot11_rate_num:%d, rate_count:%d\n", basic_rate_ie_len, extend_rate_ie_len, rs.dot11_rate_num, rate_count);
+        AML_OUTPUT("basic_len:%d, extend_len:%d, dot11_rate_num:%d, rate_count:%d\n", basic_rate_ie_len, extend_rate_ie_len, rs.dot11_rate_num, rate_count);
 
         if (ht_cap_ie) {
             htcap_tmp = READ_16L(ht_cap_ie + sizeof(unsigned short));

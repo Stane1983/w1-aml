@@ -1302,11 +1302,19 @@ EXPORT_SYMBOL(aml_mem_prealloc);
 
 static int aml_init_wlan_mem(void)
 {
+#if defined(LOW_MEMORY_PLATFORM)
     wlan_preallocated_tx_desc_buf = kmalloc(TX_DESC_BUF_LEN, GFP_KERNEL | __GFP_NOFAIL);
+#else
+    wlan_preallocated_tx_desc_buf = kmalloc(TX_DESC_BUF_LEN, GFP_KERNEL);
+#endif
     if (!wlan_preallocated_tx_desc_buf)
         return -ENOMEM;
 
+#if defined(LOW_MEMORY_PLATFORM)
     wlan_preallocated_rx_buf = kvmalloc(RX_BUF_LEN, GFP_KERNEL | __GFP_NOFAIL);
+#else
+    wlan_preallocated_rx_buf = kvmalloc(RX_BUF_LEN, GFP_KERNEL);
+#endif
     if (!wlan_preallocated_rx_buf) {
         vfree(wlan_preallocated_tx_desc_buf);
         return -ENOMEM;
