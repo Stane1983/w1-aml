@@ -2882,7 +2882,7 @@ static int vm_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
         unsigned char *htcapie = NULL;
         unsigned char *htinfoie = NULL;
         unsigned char *vhtoptie = NULL;
-        const struct cfg80211_bss_ies *ies = rcu_dereference(bss->ies);
+        const struct cfg80211_bss_ies *ies = rcu_dereference_protected(bss->ies, lockdep_is_held(&wiphy->mtx));
 
         htcapie = vm_get_ie(ies->data, ies->len, NULL, (unsigned int *)&htcapie_len, WIFINET_ELEMID_HTCAP, 0);
         htinfoie = vm_get_ie(ies->data, ies->len, NULL, (unsigned int *)&htinfoie_len, WIFINET_ELEMID_HTINFO, 0);
@@ -7416,12 +7416,18 @@ void vm_cfg80211_chan_switch_notify_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TY
     AML_OUTPUT("vid:%d notify new_chan:%d bw:%d freq:%d start:%d\n", wnet_vif->wnet_vif_id, vmac_chan->chan_pri_num,
         vmac_chan->chan_bw, vmac_chan->chan_cfreq1, start);
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 1))
+    wiphy_lock(wiphy);
+#endif
     if (start) {
         aml_cfg80211_ch_switch_started_notify(ndev, &chandef, 0, wnet_vif->vm_wmac->wm_doth_tbtt, 0);/*#define CSA_BLOCK_TX            1*/
     } else {
         aml_cfg80211_ch_switch_notify(ndev, &chandef, 0);
         memset(&(wnet_vif->csa_target.switch_chan) , 0, sizeof(struct wifi_channel));
     }
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 1))
+    wiphy_unlock(wiphy);
+#endif
 
     return;
 }

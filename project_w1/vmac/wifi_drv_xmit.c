@@ -1737,9 +1737,11 @@ static void drv_txlist_free_all_by_vid(struct drv_private *drv_priv, struct drv_
     if (drv_priv->drv_config.cfg_txaggr)
     {
         drv_txlist_push_pending(drv_priv, txlist, vid);
+        DRV_TXQ_UNLOCK(txlist);
         drv_priv->net_ops->wifi_mac_free_txamsdu_queue(drv_priv->wmac, vid);
+    } else {
+        DRV_TXQ_UNLOCK(txlist);
     }
-    DRV_TXQ_UNLOCK(txlist);
 
     drv_txq_backup_drain(drv_priv, txlist, vid);
 }
