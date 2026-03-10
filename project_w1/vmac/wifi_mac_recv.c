@@ -4666,32 +4666,42 @@ void wifi_mac_recv_action(struct wlan_net_vif *wnet_vif, struct wifi_station *st
                 switch (ia->ia_action)
                 {
                     case WIFINET_ACT_PUBLIC_BSSCOEXIST:
-                        WIFINET_VERIFY_LENGTH(efrm - frm, sizeof(struct wifi_mac_action_bss_coex_frame));
+                        if ((wnet_vif->vm_state == WIFINET_S_CONNECTED) && WIFINET_ADDR_EQ(sta->sta_bssid, wh->i_addr2)) {
+                            WIFINET_VERIFY_LENGTH(efrm - frm, sizeof(struct wifi_mac_action_bss_coex_frame));
 
-                        iabsscoex = (struct wifi_mac_action_bss_coex_frame *) frm;
-                        WIFINET_DPRINTF_STA(AML_DEBUG_ACTION, sta, "%s: Element 0 inf request = %d, 40 intolerant = %d "
-                            "20 width req = %d,  obss exempt req = %d, obss exempt grant = %d\n", __func__, iabsscoex->coex.inf_request,
-                            iabsscoex->coex.ht40_intolerant, iabsscoex->coex.ht20_width_req, iabsscoex->coex.obss_exempt_req, iabsscoex->coex.obss_exempt_grant);
+                            iabsscoex = (struct wifi_mac_action_bss_coex_frame *) frm;
+                            WIFINET_DPRINTF_STA(AML_DEBUG_ACTION, sta, "%s: Element 0 inf request = %d, 40 intolerant = %d "
+                                "20 width req = %d,  obss exempt req = %d, obss exempt grant = %d\n", __func__, iabsscoex->coex.inf_request,
+                                iabsscoex->coex.ht40_intolerant, iabsscoex->coex.ht20_width_req, iabsscoex->coex.obss_exempt_req, iabsscoex->coex.obss_exempt_grant);
 
-                        if (iabsscoex->coex.ht40_intolerant || iabsscoex->coex.ht20_width_req
-                            || (((skb->data_len - sizeof(struct wifi_frame)) > (sizeof(struct wifi_mac_action_bss_coex_frame)))
-                            && (wifi_mac_recv_bss_intol_channelCheck(wifimac, &iabsscoex->chan_report)==true))){
+                            if (iabsscoex->coex.ht40_intolerant || iabsscoex->coex.ht20_width_req
+                                || (((skb->data_len - sizeof(struct wifi_frame)) > (sizeof(struct wifi_mac_action_bss_coex_frame)))
+                                && (wifi_mac_recv_bss_intol_channelCheck(wifimac, &iabsscoex->chan_report)==true))){
 
-                            sta->sta_flags_ext |= WIFINET_NODE_40_INTOLERANT;
-                            sta->sta_chbw = WIFINET_BWC_WIDTH20;
-                            sta->sta_htcap &= ~WIFINET_HTCAP_SUPPORTCBW40;
+                                sta->sta_flags_ext |= WIFINET_NODE_40_INTOLERANT;
+                                sta->sta_chbw = WIFINET_BWC_WIDTH20;
+                                sta->sta_htcap &= ~WIFINET_HTCAP_SUPPORTCBW40;
 
-                            sta->sta_wnet_vif->vm_curchan->chan_bw = WIFINET_BWC_WIDTH20;
-                            sta->sta_wnet_vif->vm_bandwidth = WIFINET_BWC_WIDTH20;
-                            sta->sta_wnet_vif->scnd_chn_offset = WIFINET_HTINFO_EXTOFFSET_NA;
-                            sta->sta_wnet_vif->vm_htcap &= ~WIFINET_HTCAP_SUPPORTCBW40;
+                                if (sta->sta_wnet_vif->vm_curchan != NULL)
+                                    sta->sta_wnet_vif->vm_curchan->chan_bw = WIFINET_BWC_WIDTH20;
 
-                            wifi_mac_change_cbw(wifimac, 1);
+                                sta->sta_wnet_vif->vm_bandwidth = WIFINET_BWC_WIDTH20;
+                                sta->sta_wnet_vif->scnd_chn_offset = WIFINET_HTINFO_EXTOFFSET_NA;
+                                sta->sta_wnet_vif->vm_htcap &= ~WIFINET_HTCAP_SUPPORTCBW40;
+
+                                wifi_mac_change_cbw(wifimac, 1);
+                            }
+                        } else {
+                            AML_OUTPUT("addr1:%s\n", ether_sprintf(wh->i_addr1));
+                            AML_OUTPUT("addr2:%s\n", ether_sprintf(wh->i_addr2));
+                            AML_OUTPUT("addr3:%s\n", ether_sprintf(wh->i_addr3));
                         }
                         break;
 
                     case WIFINET_ACT_PUBLIC_CSA:
-                        if (wnet_vif->vm_opmode == WIFINET_M_STA && WIFINET_ADDR_EQ(sta->sta_bssid, wh->i_addr2)) {
+                        if ((wnet_vif->vm_opmode == WIFINET_M_STA)
+                            && (wnet_vif->vm_state == WIFINET_S_CONNECTED)
+                            && (WIFINET_ADDR_EQ(sta->sta_bssid, wh->i_addr2))) {
                            csa_frame = (struct wifi_mac_action_csa_frame *) frm;
                            sta->sta_channel_switch_mode = csa_frame->csa.chan_switch_mode;
                            sta->sta_chan_switch_chan = csa_frame->csa.new_chan_num;
