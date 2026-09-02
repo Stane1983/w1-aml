@@ -43,7 +43,7 @@ void hif_init_ops(void)
 {
     struct amlw_hif_ops* ops = &g_hw_interface.hif_ops;
 #ifdef SDIO_BUILD_IN
-    memcpy(&g_hw_interface.hif_ops, &g_w1_hif_ops,
+    memcpy(&g_hw_interface.hif_ops, &w1_g_w1_hif_ops,
            sizeof(struct amlw_hif_ops));
 #endif
 
@@ -696,7 +696,7 @@ unsigned char hi_set_cmd(unsigned char *pdata, unsigned int len)
 
         OS_UDELAY(20);
     }
-    aml_wifi_sdio_power_lock();
+    w1_aml_wifi_sdio_power_lock();
     POWER_BEGIN_LOCK();
     if (((hal_priv->powersave_init_flag == 0) && (pscmd.Cmd == Power_Save_Cmd) &&
         (pscmd.psmode == PS_DOZE)) ||
@@ -713,7 +713,7 @@ unsigned char hi_set_cmd(unsigned char *pdata, unsigned int len)
 
     hal_priv->hal_drv_ps_status &= ~HAL_DRV_IN_ACTIVE;
     POWER_END_LOCK();
-    aml_wifi_sdio_power_unlock();
+    w1_aml_wifi_sdio_power_unlock();
 
     return true;
 }

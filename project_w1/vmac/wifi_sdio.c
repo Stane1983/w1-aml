@@ -1502,10 +1502,10 @@ static void config_pmu_reg(bool is_power_on)
     }
 }
 
-extern unsigned char set_wifi_bt_sdio_driver_bit(bool is_register, int shift);
-extern unsigned char w1_sdio_driver_insmoded;
-extern unsigned char w1_sdio_after_porbe;
-extern int  aml_w1_sdio_init(void);
+extern unsigned char w1_set_wifi_bt_sdio_driver_bit(bool is_register, int shift);
+extern unsigned char w1_w1_sdio_driver_insmoded;
+extern unsigned char w1_w1_sdio_after_porbe;
+extern int  w1_aml_w1_sdio_init(void);
 extern void  aml_w1_sdio_exit(void);
 
 int aml_sdio_init(void)
@@ -1518,7 +1518,7 @@ int aml_sdio_init(void)
     pr_debug("SDIO_BUILD_IN %s\n", __func__);
     aml_customer_gpio_wlan_ctrl(WLAN_POWER_ON);
 
-    if (!w1_sdio_after_porbe) {
+    if (!w1_w1_sdio_after_porbe) {
           pr_debug("sdio not probe, need set power \n");
           set_usb_wifi_power(0);
           msleep(100);
@@ -1526,19 +1526,19 @@ int aml_sdio_init(void)
           msleep(200);
     }
 
-    if (!w1_sdio_driver_insmoded) {
-        aml_w1_sdio_init();
+    if (!w1_w1_sdio_driver_insmoded) {
+        w1_aml_w1_sdio_init();
         msleep(200);
     }
 
-    if (!w1_sdio_after_porbe) {
+    if (!w1_w1_sdio_after_porbe) {
         ERROR_DEBUG_OUT("can't probe sdio!\n");
         //aml_w1_sdio_exit();
         return -ENODEV;
     }
 
     func = aml_priv_to_func(SDIO_FUNC7);
-    set_wifi_bt_sdio_driver_bit(AML_W1_WIFI_POWER_ON, WIFI_POWER_CHANGE_SHIFT);
+    w1_set_wifi_bt_sdio_driver_bit(AML_W1_WIFI_POWER_ON, WIFI_POWER_CHANGE_SHIFT);
 
     tx_status_list_init(&(hif->tx_status_list), WIFI_MAX_TXFRAME*2);
     skb_queue_head_init(&hif->bcn_list_head);
@@ -1638,7 +1638,7 @@ void aml_sdio_exit(void) {
     hal_priv->powersave_init_flag = 1;
     hal_free();
 
-    set_wifi_bt_sdio_driver_bit(AML_W1_WIFI_POWER_OFF, WIFI_POWER_CHANGE_SHIFT);
+    w1_set_wifi_bt_sdio_driver_bit(AML_W1_WIFI_POWER_OFF, WIFI_POWER_CHANGE_SHIFT);
 
     set_usb_wifi_power(0);
     if (aml_wifi_is_enable_rf_test())
