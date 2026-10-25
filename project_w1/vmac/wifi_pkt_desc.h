@@ -96,11 +96,19 @@ struct wifi_skb_callback
     unsigned char u_tid;
 } ;
 
+#include <linux/stddef.h>
+#ifndef struct_group
+#define struct_group(NAME, MEMBERS...) \
+    union { struct { MEMBERS }; struct { MEMBERS } NAME; }
+#endif
+
 struct wifi_mac_tx_info
 {
     struct wifi_skb_callback cb;
     struct drv_txdesc *ptxdesc;
 
+    /* everything below is reset per frame, see TXINFO_CLEAR() */
+    struct_group(txinfo_clr,
     unsigned char wnet_vif_id;      /* vmac index */
     unsigned char key_index;      /* key index */
     unsigned char key_type;    /* key type */
@@ -136,7 +144,10 @@ struct wifi_mac_tx_info
         b_tcp_saved_flag:1,
         b_pmf:1,
         b_dpp:1;
+    );
 } ;
+
+#define TXINFO_CLEAR(_txinfo) memset(&(_txinfo)->txinfo_clr, 0, sizeof((_txinfo)->txinfo_clr))
 
 #define TX_DESC_BUF_LOCK_INIT(_sc) spin_lock_init(&(_sc)->tx_desc_buf_lock)
 #define TX_DESC_BUF_LOCK_DESTROY(_sc)

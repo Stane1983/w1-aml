@@ -676,7 +676,7 @@ int wifi_mac_tx_send(struct sk_buff *skbbuf)
 
     while (skbbuf != NULL) {
         txinfo = (struct wifi_mac_tx_info *)os_skb_cb(skbbuf);
-        memset(&txinfo->wnet_vif_id, 0, sizeof(struct wifi_mac_tx_info)-sizeof(struct wifi_skb_callback)-sizeof(struct drv_txdesc *));
+        TXINFO_CLEAR(txinfo);
         next_wbuf = os_skb_next(skbbuf);
 
         if (wifi_mac_build_txinfo(wifimac, skbbuf, txinfo) != 0) {
@@ -734,7 +734,7 @@ int wifi_mac_tx_mgmt_frm(struct wifi_mac *wifimac, struct sk_buff *skbbuf)
     txinfo = (struct wifi_mac_tx_info *)os_skb_cb(skbbuf);
     sta = txinfo->cb.sta;
     ASSERT(sizeof(struct wifi_mac_tx_info) <= OS_SKB_CB_MAXLEN);
-    memset(&txinfo->wnet_vif_id, 0, sizeof(struct wifi_mac_tx_info)-sizeof(struct wifi_skb_callback)-sizeof(struct drv_txdesc *));
+    TXINFO_CLEAR(txinfo);
     wifi_mac_pwrsave_txpre(skbbuf);
     wh = (struct wifi_frame *)os_skb_data(skbbuf);
     is_robust_mgmt = is_robust_management_frame(wh);

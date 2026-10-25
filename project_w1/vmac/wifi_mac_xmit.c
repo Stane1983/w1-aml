@@ -752,7 +752,7 @@ int wifi_mac_send_nulldata_for_ap(struct wifi_station *sta, unsigned char pwr_sa
     txinfo = (struct wifi_mac_tx_info *)os_skb_cb(skb);
 
     ASSERT(sizeof(struct wifi_mac_tx_info) <= OS_SKB_CB_MAXLEN);
-    memset(&txinfo->wnet_vif_id, 0, sizeof(struct wifi_mac_tx_info)-sizeof(struct wifi_skb_callback)-sizeof(struct drv_txdesc *));
+    TXINFO_CLEAR(txinfo);
     wifi_mac_pwrsave_txpre(skb);
 #if 0
     txinfo->b_pwr_flag = pwr_flag;
