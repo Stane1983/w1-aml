@@ -144,8 +144,8 @@ int aml_sdio_scat_rw(struct scatterlist *sg_list, unsigned int sg_num, unsigned 
 #include <asm/uaccess.h>
 extern void amlwifi_set_sdio_host_clk(int clk);
 extern void sdio_reinit(void);
-extern void aml_wifi_sdio_power_lock(void);
-extern void aml_wifi_sdio_power_unlock(void);
+extern void w1_aml_wifi_sdio_power_lock(void);
+extern void w1_aml_wifi_sdio_power_unlock(void);
 void aml_sdio_reset(void);
 void aml_sdio_irq_path(unsigned char b_gpio);
 #if (USE_GPIO_IRQ)
