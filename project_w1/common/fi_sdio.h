@@ -909,7 +909,7 @@ typedef struct HW_RxDescripter_bit
                       /* F offset, hw calculate ip checksum */
                       RxIPCSUMCalculated:1,
                       channel_bw_rts:2;
-        unsigned char data[0];
+        unsigned char data[];
 } HW_RxDescripter_bit, V_HW_RxDescripter_bit;
 
 

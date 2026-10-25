@@ -133,7 +133,7 @@ struct wifi_mac_pub_gas_act_frame
     unsigned char   dialog_token;
     unsigned char   tag_num;
     unsigned char   tag_len;
-    unsigned char   elts[1];
+    unsigned char   elts[];
 } __packed;
 
 

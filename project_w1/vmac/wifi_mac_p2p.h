@@ -170,7 +170,7 @@ struct wifi_mac_p2p_action_frame
     unsigned char   type;
     unsigned char   subtype;
     unsigned char   dialog_token;
-    unsigned char   elts[1];
+    unsigned char   elts[];
 } __packed;
 
 struct wifi_mac_p2p_pub_act_frame
@@ -181,7 +181,7 @@ struct wifi_mac_p2p_pub_act_frame
     unsigned char   oui_type;
     unsigned char   subtype;
     unsigned char   dialog_token;
-    unsigned char   elts[1];
+    unsigned char   elts[];
 
 } __packed;
 
@@ -191,7 +191,7 @@ struct wifi_mac_p2p_ie
     unsigned char   len;
     unsigned char   OUI[3];
     unsigned char   oui_type;
-    unsigned char   subelts[1];
+    unsigned char   subelts[];
 } __packed;
 
 struct p2p_ie_listen_chan_attr
@@ -224,7 +224,7 @@ struct p2p_ie_chanlist_attr_chan_entry
 {
     unsigned char   operat_class;
     unsigned char   num;
-    unsigned char   chan_list[1];
+    unsigned char   chan_list[];
 } __packed;
 
 struct p2p_ie_chan_list_attr

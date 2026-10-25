@@ -1141,7 +1141,7 @@ struct wifi_mac_tim_ie
     unsigned char  tim_count;
     unsigned char  tim_period;
     unsigned char  tim_bitctl;
-    unsigned char  tim_bitmap[1];
+    unsigned char  tim_bitmap[];
 } __packed;
 
 struct wifi_mac_country_ie

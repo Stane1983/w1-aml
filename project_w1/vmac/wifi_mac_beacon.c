@@ -92,7 +92,8 @@ wifi_mac_beacon_init(struct wifi_station *sta, struct wifi_mac_beacon_offsets *b
         tie->tim_period = wnet_vif->vm_dtim_period;
         tie->tim_bitctl = 0;
         tie->tim_bitmap[0] = 0;
-        frm += sizeof(struct wifi_mac_tim_ie);
+        /* fixed TIM header + 1 byte partial virtual bitmap */
+        frm += sizeof(struct wifi_mac_tim_ie) + 1;
         bo->bo_tim_len = 1;
     }
     bo->bo_tim_trailer = frm;
