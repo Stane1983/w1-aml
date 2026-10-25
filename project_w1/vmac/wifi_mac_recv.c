@@ -1355,6 +1355,7 @@ wifi_mac_auth_shared(struct wifi_station *sta, struct wifi_frame *wh,
                 pr_debug("<running> %s %d \n",__func__,__LINE__);
                 goto bad;
             }
+            break;
         default:
             break;
     }
@@ -2304,6 +2305,7 @@ void wifi_mac_parse_htcap(struct wifi_station *sta, unsigned char *ie)
                 sta->sta_htcap |= WIFINET_HTCAP_DYNAMIC_SMPS;
                 sta->sta_update_rate_flag = WIFINET_NODE_SM_PWRSAV_DYN;
             }
+            break;
 
         default:
             break;
