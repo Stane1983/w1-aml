@@ -28,7 +28,7 @@ static int vm_cfg80211_monitor_if_close(struct net_device *ndev)
     return ret;
 }
 
-static int vm_cfg80211_monitor_if_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
+static netdev_tx_t vm_cfg80211_monitor_if_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 {
     int ret = 0;
     int rtap_len;
@@ -121,7 +121,7 @@ static void vm_cfg80211_monitor_if_destructor(struct net_device *ndev)
     
     free_netdev(ndev);
 }
-static int vm_cfg80211_go_if_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
+static netdev_tx_t vm_cfg80211_go_if_xmit_entry(struct sk_buff *skb, struct net_device *ndev)
 {
     struct wlan_net_vif *wnet_vif = vm_netdev_priv(ndev);
 
