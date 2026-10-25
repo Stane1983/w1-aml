@@ -1809,8 +1809,8 @@ void wifi_mac_sta_disassoc_in_task(struct wlan_net_vif *wnet_vif)
             list_del_init(&sta->sta_list);
 
             wifi_mac_add_work_task(nt->nt_wmac, wifi_mac_disassoc_cb, NULL,
-                                   (SYS_TYPE)wnet_vif, (SYS_TYPE)sta, NULL,
-                                   NULL, NULL);
+                                   (SYS_TYPE)wnet_vif, (SYS_TYPE)sta, 0,
+                                   0, 0);
         }
     }
 

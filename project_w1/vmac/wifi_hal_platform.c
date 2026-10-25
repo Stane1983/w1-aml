@@ -13,7 +13,12 @@ namespace FW_NAME
 #include "version.h"
 #include "wifi_drv_reg_ops.h"
 #if defined (HAL_FPGA_VER)
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(3,14,29)
 #include <linux/amlogic/aml_gpio_consumer.h>
+#else
+/* filter_num is only consumed by the legacy (<= 3.14) AML_GPIO_IRQ path */
+#define FILTER_NUM4 4
+#endif
 #include "wifi_mac_com.h"
 #include <linux/delay.h>
 #endif

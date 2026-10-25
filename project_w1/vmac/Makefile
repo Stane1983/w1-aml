@@ -70,7 +70,10 @@ CONFIG_WIFI_CAPTURE=y
 TARGET = vlsicomm
 
 EXTRA_CFLAGS += -Wno-enum-conversion -Wno-strict-prototypes
-EXTRA_CFLAGS += -Wno-implicit-function-declaration -Wno-int-conversion
+# Do not hide implicit declarations / int<->pointer conversions: on arm64 an
+# implicitly declared function returns a truncated int, and on new kernels a
+# removed API must fail at build time instead of at module load.
+EXTRA_CFLAGS += -Werror=implicit-function-declaration -Werror=int-conversion
 EXTRA_CFLAGS += -Wno-misleading-indentation
 EXTRA_CFLAGS += ${INCS}  -DCONFIG_WAPI
 EXTRA_CFLAGS += -Wall -Wno-unused-function #show all warning
@@ -117,6 +120,10 @@ endif
 ifeq ($(CLANG_VERSION), r487747)
 EXTRA_CFLAGS += -Wno-unused-but-set-variable
 endif
+# android16-6.12 (Android 16)
+ifeq ($(CLANG_VERSION), r536225)
+EXTRA_CFLAGS += -Wno-unused-but-set-variable
+endif
 
 ifneq ($(KERNELRELEASE),)
 
@@ -147,7 +154,8 @@ EXTRA_CFLAGS += -DDRV_PT_SUPPORT
 KBUILD_CFLAGS_MODULE += -Wframe-larger-than=200000000
 KBUILD_CFLAGS_MODULE += -Wlarger-than=20000000
 else
-KBUILD_CFLAGS_MODULE += -Wframe-larger-than=200000000
+# keep the kernel's default -Wframe-larger-than (2048) for the normal driver:
+# all frames fit, and arm64 kernel stacks are only 16K
 KBUILD_CFLAGS_MODULE += -Wlarger-than=20000000
 endif
 
@@ -212,8 +220,10 @@ ifneq (${LLVM},)
 else
 	$(CROSS_COMPILE)strip --strip-unneeded ${OUT_DIR}/$(M)/$(TARGET).ko
 endif
+else ifneq (${LLVM},)
+	llvm-strip --strip-unneeded $(TARGET).ko
 else
-	$(STRIP) -S $(TARGET).ko
+	$(CROSS_COMPILE)strip --strip-unneeded $(TARGET).ko
 endif
 
 modules_install:

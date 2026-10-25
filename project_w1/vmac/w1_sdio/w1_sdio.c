@@ -1,5 +1,6 @@
 #include "w1_sdio.h"
 #include <linux/mutex.h>
+#include <linux/vmalloc.h>
 
 #include "chip_pmu_reg.h"
 #include "chip_intf_reg.h"

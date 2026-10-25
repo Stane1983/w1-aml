@@ -88,10 +88,11 @@ extern struct hal_private g_hal_priv;
 #endif
 /*End of HAL_FPGA_VER*/
 
-#ifndef defined(NOT_AMLOGIC_PLATFORM)
+#undef pr_debug
+#ifndef NOT_AMLOGIC_PLATFORM
 #define pr_debug(fmt, ...) pr_info(fmt, ##__VA_ARGS__)
 #else
-#define pr_debug(fmt, ...)
+#define pr_debug(fmt, ...) no_printk(fmt, ##__VA_ARGS__)
 #endif
 
 /*Start of HAL_SIM_VER*/
