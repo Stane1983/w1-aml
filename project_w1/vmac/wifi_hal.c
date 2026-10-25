@@ -119,8 +119,11 @@ unsigned char hal_chk_replay_cnt(struct hal_private *hal_priv, HW_RxDescripter_b
     {
         is_group = AML_MCAST_TYPE;
         wnet_vif_id =RxPrivHdr_bit->bssidmatch_id;
-        PN = &hal_priv->mRepCnt[wnet_vif_id].rxPN[0];
-        wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
+        /* 2-bit hw field, but only WIFI_MAX_VID replay counters exist */
+        if (wnet_vif_id < WIFI_MAX_VID) {
+            PN = &hal_priv->mRepCnt[wnet_vif_id].rxPN[0];
+            wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
+        }
     }
     else
     {
@@ -139,14 +142,19 @@ unsigned char hal_chk_replay_cnt(struct hal_private *hal_priv, HW_RxDescripter_b
              */
             return false;
         }
-        wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
-        PN = &hal_priv->uRepCnt[wnet_vif_id][staid].rxPN[0][0];
+        if ((wnet_vif_id < WIFI_MAX_VID) && (staid >= 0) && (staid < WIFI_MAX_STA)) {
+            wnet_vif = drv_priv->drv_wnet_vif_table[wnet_vif_id];
+            PN = &hal_priv->uRepCnt[wnet_vif_id][staid].rxPN[0][0];
+        }
     }
 
     switch (RxPrivHdr->RxDecryptType)
     {
         case RX_PHY_TKIP:
         case RX_PHY_CCMP:
+            /* no replay counter for this vif/sta: never accept unchecked */
+            if ((PN == NULL) || (wnet_vif == NULL))
+                return false;
             repcnt_my[is_group] = (unsigned long long *)PN;
             repcnt_rx = (unsigned long long *)RxPrivHdr->PN;
             /* not require "+1", just require increase */
@@ -190,6 +198,8 @@ unsigned char hal_chk_replay_cnt(struct hal_private *hal_priv, HW_RxDescripter_b
             }
             break;
         case RX_PHY_WAPI:
+            if (PN == NULL)
+                return false;
             if (hal_wpi_chk_pn_increase(RxPrivHdr->PN, PN) == true) {
                 memcpy(PN, RxPrivHdr->PN, MAX_PN_LEN);
                 return true;

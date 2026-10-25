@@ -385,9 +385,20 @@ struct wifi_station_tbl
 
 #define WIFINET_SAVEQ_GET_TAIL(_pstxqueue) skb_peek_tail(_pstxqueue)
 
-#define vm_StaSetAid(_wnet_vif, _aid) ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] |= (1 << (WIFINET_AID(_aid) % 32)))
-#define vm_StaClearAid(_wnet_vif, _aid) ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] &= ~(1 << (WIFINET_AID(_aid) % 32)))
-#define vm_StaIsSetAid(_wnet_vif, _aid) ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] & (1 << (WIFINET_AID(_aid) % 32)))
+/*
+ * vm_aid_bitmap only covers the AIDs this driver hands out as an AP
+ * (WIFINET_AID_DEF). An AID assigned by a remote AP can be much larger, so
+ * never index past the bitmap (silent memory corruption, and a UBSAN
+ * array-bounds trap on GKI kernels).
+ */
+#define vm_StaAidValid(_wnet_vif, _aid) \
+    (WIFINET_AID(_aid) < ARRAY_SIZE((_wnet_vif)->vm_aid_bitmap) * 32)
+#define vm_StaSetAid(_wnet_vif, _aid) (vm_StaAidValid(_wnet_vif, _aid) ? \
+    ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] |= (1U << (WIFINET_AID(_aid) % 32))) : 0)
+#define vm_StaClearAid(_wnet_vif, _aid) (vm_StaAidValid(_wnet_vif, _aid) ? \
+    ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] &= ~(1U << (WIFINET_AID(_aid) % 32))) : 0)
+#define vm_StaIsSetAid(_wnet_vif, _aid) (vm_StaAidValid(_wnet_vif, _aid) ? \
+    ((_wnet_vif)->vm_aid_bitmap[WIFINET_AID(_aid) / 32] & (1U << (WIFINET_AID(_aid) % 32))) : 0)
 
 void wifi_mac_sta_attach(struct wifi_mac *);
 void wifi_mac_StationDetach(struct wifi_mac *);
