@@ -6974,8 +6974,11 @@ int wifi_mac_alloc_wdev(struct wlan_net_vif *wnet_vif, struct device *dev)
     wdev->wiphy->n_addresses = 1;
     AML_OUTPUT("%p %d wdev->iftype  %d\n",
             wdev->wiphy->addresses,wdev->wiphy->n_addresses,wdev->iftype );
-    /*register wireless device. */
-    ret = wiphy_register(wdev->wiphy);
+    /*register wireless device (the P2P vif's wiphy only if p2p_iface is set). */
+    if ((wnet_vif->wnet_vif_id == NET80211_P2P_VMAC) && !aml_wifi_p2p_iface_enabled())
+        ret = 0;
+    else
+        ret = wiphy_register(wdev->wiphy);
     aml_2g_channels_init(wdev->wiphy->bands[IEEE80211_BAND_2GHZ]->channels);
     aml_5g_channels_init(wdev->wiphy->bands[IEEE80211_BAND_5GHZ]->channels);
 
@@ -7038,7 +7041,8 @@ void vm_wdev_free(struct wireless_dev *wdev, unsigned char vid)
         pwdev_priv->pGo_ndev=NULL;
         //wiphy_unregister(wdev->wiphy);
     }
-    wiphy_unregister(wdev->wiphy);
+    if (wdev->wiphy->registered)
+        wiphy_unregister(wdev->wiphy);
     aml_spt_band_free(wdev->wiphy->bands[IEEE80211_BAND_2GHZ]);
     aml_spt_band_free(wdev->wiphy->bands[IEEE80211_BAND_5GHZ]);
     wiphy_free(wdev->wiphy);

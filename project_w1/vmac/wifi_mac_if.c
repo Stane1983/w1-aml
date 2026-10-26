@@ -3784,7 +3784,10 @@ vm_wlan_net_vif_unregister(struct wlan_net_vif *wnet_vif)
     vm_p2p_dettach(pwdev_priv);
 #endif //CONFIG_P2P
 
-    unregister_netdev(dev);
+    if (dev->reg_state == NETREG_REGISTERED)
+        unregister_netdev(dev);
+    else
+        free_netdev(dev);   /* hidden p2p vif: never registered */
     vm_wdev_free(wdev, vid);
 }
 

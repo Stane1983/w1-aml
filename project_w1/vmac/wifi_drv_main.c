@@ -2498,6 +2498,9 @@ drv_dev_probe(void)
 
     /* register both netdevs together so userspace never sees only one */
     rtnl_lock();
+    if (!aml_wifi_p2p_iface_enabled())
+        AML_OUTPUT("p2p interface disabled, not registering %s\n", vmac1);
+
     ndev = drv_priv->drv_wnet_vif_table[0]->vm_ndev;
     ret = register_netdevice(ndev);
     if (ret) {
@@ -2507,7 +2510,7 @@ drv_dev_probe(void)
     }
 
     ndev = drv_priv->drv_wnet_vif_table[1]->vm_ndev;
-    ret = register_netdevice(ndev);
+    ret = aml_wifi_p2p_iface_enabled() ? register_netdevice(ndev) : 0;
     if (ret) {
         ERROR_DEBUG_OUT("ERROR::%s: unable to register device: %d\n", ndev->name, ret);
         unregister_netdevice(drv_priv->drv_wnet_vif_table[0]->vm_ndev);

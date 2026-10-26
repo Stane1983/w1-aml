@@ -799,6 +799,12 @@ static int vif0opmode = -1;
 static int vif1opmode = -1;
 static char *vmac0 = "wlan0";
 static char *vmac1 = "p2p0";
+/*
+ * CoreELEC has no use for P2P: by default the second (P2P) vif is still
+ * created internally, because large parts of the driver expect it, but its
+ * wiphy and netdev are not registered, so only wlan0/phy0 are visible.
+ */
+static bool p2p_iface;
 static unsigned int con_mode = ((1 << WIFINET_M_STA) | (1 << WIFINET_M_P2P_DEV));
 static int en_rf_test = 0;
 
@@ -925,6 +931,11 @@ char *aml_wifi_get_vif0_name(void)
 char *aml_wifi_get_vif1_name(void)
 {
     return vmac1;
+}
+
+bool aml_wifi_p2p_iface_enabled(void)
+{
+    return p2p_iface;
 }
 
 unsigned int aml_wifi_get_con_mode(void)
@@ -1084,6 +1095,8 @@ module_param(vif0opmode, int, S_IRUGO);
 module_param(vif1opmode, int, S_IRUGO);
 module_param(vmac0, charp, S_IRUGO);
 module_param(vmac1, charp, S_IRUGO);
+module_param(p2p_iface, bool, S_IRUGO);
+MODULE_PARM_DESC(p2p_iface, "Expose the P2P interface (p2p0) to userspace (default: no)");
 module_param(con_mode, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 module_param(plt_ver, charp, S_IRUGO);
 module_param(sdblksize, int, S_IRUGO);

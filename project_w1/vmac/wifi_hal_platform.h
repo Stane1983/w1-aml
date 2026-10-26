@@ -41,6 +41,7 @@ extern void aml_wifi_set_mac_addr(void);
 extern char * aml_wifi_get_country_code(void);
 extern char * aml_wifi_get_vif0_name(void);
 extern char * aml_wifi_get_vif1_name(void);
+extern bool aml_wifi_p2p_iface_enabled(void);
 extern int aml_wifi_get_vif0_opmode(void);
 extern int aml_wifi_get_vif1_opmode(void);
 extern unsigned int aml_wifi_get_con_mode(void);
