@@ -3478,7 +3478,7 @@ void hal_txinfo_show()
     PRINT(" hal_priv->HalTxFrameDoneCounter=%d,\n", hal_priv->HalTxFrameDoneCounter );
     PRINT(" hal_priv->txcompletestatus->txpagecounter=%d,\n", hal_priv->txcompletestatus->txpagecounter );
 
-    PRINT("HiStatus.Tx_Done_num-- %d \n", hif->HiStatus.Tx_Done_num);
+    PRINT("HiStatus.Tx_Done_num-- %d \n", atomic_read(&hif->HiStatus.Tx_Done_num));
 }
 
 void hal_dpd_memory_download(void)

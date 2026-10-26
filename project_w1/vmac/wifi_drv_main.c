@@ -2468,6 +2468,10 @@ drv_dev_probe(void)
         vm_param.vm_param_opmode = WIFINET_M_STA;
     }
     ret = drv_priv->net_ops->wifi_mac_create_vmac(wm_mac, &vm_param, 0);
+    if (ret || !drv_priv->drv_wnet_vif_table[0]) {
+        ERROR_DEBUG_OUT("create vmac %s failed: %d\n", vmac0, ret);
+        goto err_ret;
+    }
 
     vmac1 = aml_wifi_get_vif1_name();
     strscpy(vm_param.vm_param_name, vmac1, sizeof(vm_param.vm_param_name));
@@ -2479,6 +2483,10 @@ drv_dev_probe(void)
         vm_param.vm_param_opmode = WIFINET_M_P2P_DEV;
     }
     ret = drv_priv->net_ops->wifi_mac_create_vmac(wm_mac, &vm_param, 0);
+    if (ret || !drv_priv->drv_wnet_vif_table[1]) {
+        ERROR_DEBUG_OUT("create vmac %s failed: %d\n", vmac1, ret);
+        goto err_ret;
+    }
 
     /* 6 init station. */
     drv_priv->net_ops->wifi_mac_sta_attach(wm_mac);
@@ -2488,26 +2496,31 @@ drv_dev_probe(void)
     drv_priv->drv_ops.drv_set_bmfm_info(drv_priv, 0, 0, 0, 0);
     drv_hal_enable_coexist(drv_priv->drv_config.cfg_wifi_bt_coexist_support);
 
+    /* register both netdevs together so userspace never sees only one */
     rtnl_lock();
     ndev = drv_priv->drv_wnet_vif_table[0]->vm_ndev;
-    if (register_netdevice(ndev))
-    {
-        ERROR_DEBUG_OUT("ERROR::%s: unable to register device\n", ndev->name);
+    ret = register_netdevice(ndev);
+    if (ret) {
+        ERROR_DEBUG_OUT("ERROR::%s: unable to register device: %d\n", ndev->name, ret);
         rtnl_unlock();
-        goto err_ret;
+        goto err_notifier;
     }
 
     ndev = drv_priv->drv_wnet_vif_table[1]->vm_ndev;
-    if (register_netdevice(ndev))
-    {
-        ERROR_DEBUG_OUT("ERROR::%s: unable to register device\n", ndev->name);
+    ret = register_netdevice(ndev);
+    if (ret) {
+        ERROR_DEBUG_OUT("ERROR::%s: unable to register device: %d\n", ndev->name, ret);
+        unregister_netdevice(drv_priv->drv_wnet_vif_table[0]->vm_ndev);
         rtnl_unlock();
-        goto err_ret;
+        goto err_notifier;
     }
     rtnl_unlock();
 
-    return ret;
+    return 0;
 
+err_notifier:
+    unregister_inetaddr_notifier(&aml_inetaddr_cb);
+    unregister_inet6addr_notifier(&aml_inet6addr_cb);
 err_ret:
     aml_driv_detach(drv_priv);
     return -ENODEV;

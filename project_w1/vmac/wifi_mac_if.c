@@ -4508,7 +4508,8 @@ static void wifi_mac_connect_repair_task(SYS_TYPE param1,SYS_TYPE param2, SYS_TY
 #endif
 
             pr_emerg("last free page %d, current free page %d, tx_ok %d, last tx_ok %d, tx_fail:%d, last_tx_fail:%d host_wake %hhu\n",
-                    free_page, hal_priv->txPageFreeNum, tx_ok_num, hif->HiStatus.tx_ok_num, tx_fail_num, hif->HiStatus.tx_fail_num);
+                    free_page, hal_priv->txPageFreeNum, tx_ok_num, hif->HiStatus.tx_ok_num, tx_fail_num, hif->HiStatus.tx_fail_num,
+                    wifi_mac_get_host_wake_status());
 
             count = 0;
             pr_emerg("will repair connection!\n");

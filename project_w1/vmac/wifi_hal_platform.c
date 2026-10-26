@@ -1004,7 +1004,6 @@ static int aml_insmod(void)
 #endif
 
     print_driver_version();
-    pr_info("driver version: %s\n", DRIVERVERSION);
     pr_debug("%s(%d) dhcp_offload %d set done.\n\n",
         __func__,__LINE__, dhcp_offload);
 
